@@ -1,0 +1,29 @@
+{
+  "name": "chatroom-monorepo",
+  "version": "1.0.0",
+  "description": "Full-stack MERN Chat Application monorepo scaffold",
+  "scripts": {
+    "install:backend": "npm --prefix backend install",
+    "install:frontend": "npm --prefix frontend install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run install:all && npm run build:frontend",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start": "npm --prefix backend start",
+    "lint:backend": "npm --prefix backend run lint",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "lint": "npm run lint:backend && npm run lint:frontend"
+  },
+  "keywords": [
+    "mern",
+    "chat",
+    "socket.io",
+    "express",
+    "react",
+    "mongodb",
+    "webrtc"
+  ],
+  "author": "",
+  "license": "ISC"
+}
