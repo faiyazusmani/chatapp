@@ -29,6 +29,15 @@ const userSchema = new mongoose.Schema(
     avatar: {
       type: String,
       default: 'https://api.dicebear.com/7.x/bottts/svg?seed=ChatUser'
+    },
+    status: {
+      type: String,
+      enum: ['online', 'offline', 'away'],
+      default: 'offline'
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now
     }
   },
   {

@@ -6,11 +6,13 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Chat from './pages/Chat';
+import { PresenceProvider } from './hooks/usePresence';
 
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <PresenceProvider>
+        <Routes>
         {/* Full-screen Gajim Desktop Messenger route */}
         <Route
           path="/chat"
@@ -37,7 +39,8 @@ export default function App() {
             </div>
           }
         />
-      </Routes>
+        </Routes>
+      </PresenceProvider>
     </AuthProvider>
   );
 }

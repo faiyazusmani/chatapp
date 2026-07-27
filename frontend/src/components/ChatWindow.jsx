@@ -6,6 +6,7 @@ import api from '../services/api';
 import VoiceCallModal from './VoiceCallModal';
 import VideoCallModal from './VideoCallModal';
 import NotificationToast from './NotificationToast';
+import PresenceBadge from './common/PresenceBadge';
 
 export default function ChatWindow({ room, onLeaveRoom, onBack }) {
   const { user } = useAuth();
@@ -389,9 +390,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
 
             return (
               <div key={msg._id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                  {initials}
-                </div>
+                <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
+                  <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                    {initials}
+                  </div>
+                </PresenceBadge>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>{senderName}</span>

@@ -1,7 +1,10 @@
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Message = require('../models/Message');
+const User = require('../models/User');
 const { memoryMessages } = require('../controllers/messageController');
+const presenceHandler = require('./presenceHandler');
 
 let io;
 
@@ -35,8 +38,39 @@ const initSocket = (server) => {
     transports: ['websocket', 'polling']
   });
 
+  // Socket Authentication Middleware
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        // Allow unauthenticated sockets for now (fallback), but presence won't work
+        return next();
+      }
+      
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // If DB is connected, fetch user to ensure they exist
+      if (isDBConnected()) {
+        const user = await User.findById(decoded.id).select('-password');
+        if (user) {
+          socket.user = user;
+        }
+      } else {
+        socket.user = { id: decoded.id };
+      }
+      next();
+    } catch (err) {
+      console.error('[Socket Auth Error]', err.message);
+      // We still allow connection, but without user object
+      next();
+    }
+  });
+
   io.on('connection', (socket) => {
     console.log(`[Socket.io] Client connected: ${socket.id}`);
+    
+    // Initialize Presence System for this socket
+    presenceHandler(io, socket);
 
     // Join room
     socket.on('join_room', ({ roomId, user }) => {
