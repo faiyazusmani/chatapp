@@ -85,17 +85,26 @@ export default function VoiceCallModal({
     log('PC', 'Creating RTCPeerConnection with ICE servers:', ICE_SERVERS.iceServers.map(s => s.urls));
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // ICE Candidate Generation — send to specific peer socket ID
+    // ICE Candidate — send to specific peer socket ID
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        log('ICE', 'Sending ICE candidate to', targetSocketIdRef.current || 'room', event.candidate.type, event.candidate.protocol);
+        // ─────────────────────────────────────────────────────────────────
+        // EVENT: ICE Candidate Sent
+        // ─────────────────────────────────────────────────────────────────
+        console.group('%c[Voice] 📤 ICE Candidate Sent', 'color:#f59e0b;font-weight:bold');
+        console.log('  type      :', event.candidate.type);
+        console.log('  protocol  :', event.candidate.protocol);
+        console.log('  address   :', event.candidate.address);
+        console.log('  port      :', event.candidate.port);
+        console.log('  target    :', targetSocketIdRef.current || '→ room (broadcast)');
+        console.groupEnd();
         socket.emit('ice_candidate', {
           toRoom: roomId,
           toSocketId: targetSocketIdRef.current,
           candidate: event.candidate
         });
       } else {
-        log('ICE', 'All ICE candidates gathered (null candidate = done)');
+        log('ICE Candidate Sent', 'All local ICE candidates gathered (null candidate)');
       }
     };
 
@@ -155,17 +164,38 @@ export default function VoiceCallModal({
       log('signalingState', '→', s);
     };
 
-    // Remote Audio Track Received
+    // ─────────────────────────────────────────────────────────────────
+    // EVENT: Remote Track Received + Remote Stream Attached + Audio Playback
+    // ─────────────────────────────────────────────────────────────────
     pc.ontrack = (event) => {
-      log('Track', 'Remote track received:', event.track.kind, '| streams:', event.streams.length);
+      console.group('%c[Voice] 📥 Remote Track Received', 'color:#22c55e;font-weight:bold');
+      console.log('  track.kind     :', event.track.kind);
+      console.log('  track.id       :', event.track.id);
+      console.log('  track.enabled  :', event.track.enabled);
+      console.log('  track.muted    :', event.track.muted);
+      console.log('  stream count   :', event.streams.length);
+      console.groupEnd();
+
       if (event.streams && event.streams[0]) {
-        log('Track', 'Attaching remote stream to audio element');
+        const remoteStream = event.streams[0];
+
+        // EVENT: Remote Stream Attached
+        console.group('%c[Voice] 🔗 Remote Stream Attached', 'color:#22c55e;font-weight:bold');
+        console.log('  stream.id      :', remoteStream.id);
+        console.log('  audio tracks   :', remoteStream.getAudioTracks().length);
+        console.groupEnd();
+
         if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = event.streams[0];
-          // FIX: Explicitly call .play() to bypass browser autoplay policy restrictions
-          remoteAudioRef.current.play().catch((err) => {
-            log('Audio', 'Autoplay blocked by browser policy:', err.message);
-          });
+          remoteAudioRef.current.srcObject = remoteStream;
+
+          // EVENT: Audio Playback Started
+          remoteAudioRef.current.play()
+            .then(() => {
+              console.log('%c[Voice] 🔊 Audio Playback Started — remote audio is live', 'color:#a855f7;font-weight:bold');
+            })
+            .catch((err) => {
+              console.warn('%c[Voice] ⚠️ Audio Playback Blocked by browser autoplay policy:', 'color:#ef4444;font-weight:bold', err.message);
+            });
         }
       }
     };
@@ -194,24 +224,30 @@ export default function VoiceCallModal({
       setCallState('calling');
       setPeerStatus('Calling room members...');
 
-      log('Call', 'Requesting microphone access via getUserMedia...');
+      log('getUserMedia', 'Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      log('Call', 'Microphone granted. Tracks:', stream.getAudioTracks().map(t => t.label));
+      log('getUserMedia', 'Microphone granted. Tracks:', stream.getAudioTracks().map(t => t.label));
       localStreamRef.current = stream;
 
       const pc = createPeerConnection();
       stream.getTracks().forEach((track) => {
-        log('Call', 'Adding local audio track to peer connection:', track.label);
+        log('addTrack', `Adding local ${track.kind} track: ${track.label}`);
         pc.addTrack(track, stream);
       });
 
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Created
+      // ─────────────────────────────────────────────────────────────────
       const offer = await pc.createOffer();
-      log('Offer', 'Created SDP offer:', offer.type);
-      await pc.setLocalDescription(offer);
-      log('Offer', 'Local description set. signalingState:', pc.signalingState);
+      console.group('%c[Voice] 📤 Offer Created', 'color:#3b82f6;font-weight:bold');
+      console.log('  type           :', offer.type);
+      console.log('  sdp (excerpt)  :', offer.sdp?.substring(0, 120) + '...');
+      console.log('  signalingState :', pc.signalingState);
+      console.groupEnd();
 
+      await pc.setLocalDescription(offer);
       socket.emit('call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
-      log('Offer', 'Offer emitted to room:', roomId);
+      log('Offer Created', 'Offer emitted via socket to room:', roomId);
     } catch (err) {
       log('Error', 'getUserMedia failed:', err.message);
       setPeerStatus('Microphone permission denied');
@@ -224,36 +260,42 @@ export default function VoiceCallModal({
       setCallState('connecting');
       setPeerStatus('Connecting call...');
 
-      log('Accept', 'Accepting call from socket:', targetSocketIdRef.current);
-      log('Accept', 'Requesting microphone access...');
+      log('getUserMedia', 'Requesting microphone (callee)...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      log('Accept', 'Microphone granted. Tracks:', stream.getAudioTracks().map(t => t.label));
+      log('getUserMedia', 'Microphone granted:', stream.getAudioTracks().map(t => t.label));
       localStreamRef.current = stream;
 
       const pc = createPeerConnection();
       stream.getTracks().forEach((track) => {
-        log('Accept', 'Adding local audio track:', track.label);
+        log('addTrack', `Adding local ${track.kind} track: ${track.label}`);
         pc.addTrack(track, stream);
       });
 
-      log('Answer', 'Setting remote description (incoming offer)...');
-      await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
-      log('Answer', 'Remote description set. signalingState:', pc.signalingState);
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Received (setting remote description)
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Voice] 📥 Offer Received', 'color:#6366f1;font-weight:bold');
+      console.log('  offer.type     :', incomingOffer?.type);
+      console.log('  from socket    :', targetSocketIdRef.current);
+      console.log('  sdp (excerpt)  :', incomingOffer?.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
 
+      await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
       await processQueuedIceCandidates(pc);
 
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Created
+      // ─────────────────────────────────────────────────────────────────
       const answer = await pc.createAnswer();
-      log('Answer', 'Created SDP answer:', answer.type);
-      await pc.setLocalDescription(answer);
-      log('Answer', 'Local description set. signalingState:', pc.signalingState);
+      console.group('%c[Voice] 📤 Answer Created', 'color:#3b82f6;font-weight:bold');
+      console.log('  type           :', answer.type);
+      console.log('  signalingState :', pc.signalingState);
+      console.log('  sdp (excerpt)  :', answer.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
 
-      // FIX: Route answer directly to caller's socket ID
-      socket.emit('answer_call', {
-        toRoom: roomId,
-        toSocketId: targetSocketIdRef.current,
-        answer
-      });
-      log('Answer', 'Answer emitted to socket:', targetSocketIdRef.current);
+      await pc.setLocalDescription(answer);
+      socket.emit('answer_call', { toRoom: roomId, toSocketId: targetSocketIdRef.current, answer });
+      log('Answer Created', 'Answer sent to socket:', targetSocketIdRef.current);
 
       setCallState('connected');
       setPeerStatus('Connected (Active Call)');
@@ -330,10 +372,19 @@ export default function VoiceCallModal({
     // WebRTC Signaling Socket Events
     const handleCallAnswered = async ({ answer }) => {
       const pc = peerConnectionRef.current;
-      log('Answer', 'Received answer from callee. signalingState:', pc?.signalingState);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Received
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Voice] 📥 Answer Received', 'color:#6366f1;font-weight:bold');
+      console.log('  answer.type    :', answer?.type);
+      console.log('  signalingState :', pc?.signalingState);
+      console.log('  sdp (excerpt)  :', answer?.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
+
       if (pc && pc.signalingState !== 'stable') {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        log('Answer', 'Remote description set from answer. signalingState:', pc.signalingState);
+        log('Answer Received', 'Remote description set. signalingState:', pc.signalingState);
         await processQueuedIceCandidates(pc);
         setCallState('connected');
         setPeerStatus('Connected (Active Call)');
@@ -342,16 +393,26 @@ export default function VoiceCallModal({
 
     const handleIceCandidate = async ({ candidate }) => {
       const pc = peerConnectionRef.current;
-      log('ICE', 'Received ICE candidate from peer:', candidate?.type, candidate?.protocol);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: ICE Candidate Received
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Voice] 📥 ICE Candidate Received', 'color:#f59e0b;font-weight:bold');
+      console.log('  type           :', candidate?.type);
+      console.log('  protocol       :', candidate?.protocol);
+      console.log('  address        :', candidate?.address);
+      console.log('  remoteDesc set :', !!(pc?.remoteDescription?.type));
+      console.groupEnd();
+
       if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          log('ICE', 'ICE candidate added successfully');
+          log('ICE Candidate Received', 'Added successfully');
         } catch (err) {
-          log('ICE', 'Failed to add ICE candidate:', err.message);
+          log('ICE Candidate Received', 'Failed to add:', err.message);
         }
       } else {
-        log('ICE', 'Remote description not set yet — queuing ICE candidate');
+        log('ICE Candidate Received', 'Remote desc not set — queuing candidate');
         iceCandidateQueueRef.current.push(candidate);
       }
     };

@@ -56,10 +56,19 @@ export default function VideoCallModal({
     // ICE Candidate — route to specific peer socket, not whole room
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        log('ICE', 'Sending candidate to', targetSocketIdRef.current || 'room', event.candidate.type);
+        // ─────────────────────────────────────────────────────────────────
+        // EVENT: ICE Candidate Sent
+        // ─────────────────────────────────────────────────────────────────
+        console.group('%c[Video] 📤 ICE Candidate Sent', 'color:#f59e0b;font-weight:bold');
+        console.log('  type      :', event.candidate.type);
+        console.log('  protocol  :', event.candidate.protocol);
+        console.log('  address   :', event.candidate.address);
+        console.log('  port      :', event.candidate.port);
+        console.log('  target    :', targetSocketIdRef.current || '→ room (broadcast)');
+        console.groupEnd();
         socket.emit('ice_candidate', { toRoom: roomId, toSocketId: targetSocketIdRef.current, candidate: event.candidate });
       } else {
-        log('ICE', 'All candidates gathered');
+        log('ICE Candidate Sent', 'All local candidates gathered (null candidate)');
       }
     };
 
@@ -110,13 +119,38 @@ export default function VideoCallModal({
       log('signalingState', '→', s);
     };
 
-    // Remote Video Track Received
+    // ─────────────────────────────────────────────────────────────────
+    // EVENT: Remote Track Received + Remote Stream Attached + Video Playback
+    // ─────────────────────────────────────────────────────────────────
     pc.ontrack = (event) => {
-      log('Track', 'Remote track received:', event.track.kind, '| streams:', event.streams.length);
+      console.group('%c[Video] 📥 Remote Track Received', 'color:#22c55e;font-weight:bold');
+      console.log('  track.kind     :', event.track.kind);
+      console.log('  track.id       :', event.track.id);
+      console.log('  track.enabled  :', event.track.enabled);
+      console.log('  track.muted    :', event.track.muted);
+      console.log('  stream count   :', event.streams.length);
+      console.groupEnd();
+
       if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        // Explicitly call play() to bypass browser autoplay policy
-        remoteVideoRef.current.play().catch(e => log('Track', 'Autoplay blocked:', e.message));
+        const remoteStream = event.streams[0];
+
+        // EVENT: Remote Stream Attached
+        console.group('%c[Video] 🔗 Remote Stream Attached', 'color:#22c55e;font-weight:bold');
+        console.log('  stream.id      :', remoteStream.id);
+        console.log('  video tracks   :', remoteStream.getVideoTracks().length);
+        console.log('  audio tracks   :', remoteStream.getAudioTracks().length);
+        console.groupEnd();
+
+        remoteVideoRef.current.srcObject = remoteStream;
+
+        // EVENT: Video Playback Started
+        remoteVideoRef.current.play()
+          .then(() => {
+            console.log('%c[Video] 📹 Video Playback Started — remote video is live', 'color:#a855f7;font-weight:bold');
+          })
+          .catch(e => {
+            console.warn('%c[Video] ⚠️ Video Playback Blocked by autoplay policy:', 'color:#ef4444;font-weight:bold', e.message);
+          });
       }
     };
 
@@ -153,17 +187,23 @@ export default function VideoCallModal({
 
       const pc = createPeerConnection();
       stream.getTracks().forEach((track) => {
-        log('Call', 'Adding local track:', track.kind);
+        log('addTrack', `Adding local ${track.kind} track: ${track.label}`);
         pc.addTrack(track, stream);
       });
 
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Created
+      // ─────────────────────────────────────────────────────────────────
       const offer = await pc.createOffer();
-      log('Offer', 'Created SDP offer:', offer.type);
-      await pc.setLocalDescription(offer);
-      log('Offer', 'Local description set. signalingState:', pc.signalingState);
+      console.group('%c[Video] 📤 Offer Created', 'color:#3b82f6;font-weight:bold');
+      console.log('  type           :', offer.type);
+      console.log('  sdp (excerpt)  :', offer.sdp?.substring(0, 120) + '...');
+      console.log('  signalingState :', pc.signalingState);
+      console.groupEnd();
 
+      await pc.setLocalDescription(offer);
       socket.emit('video_call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
-      log('Offer', 'Video offer emitted to room:', roomId);
+      log('Offer Created', 'Video offer emitted to room:', roomId);
     } catch (err) {
       console.error('[WebRTC Error] Could not access camera/microphone:', err);
       setPeerStatus('Camera/Microphone permission denied');
@@ -187,23 +227,35 @@ export default function VideoCallModal({
 
       const pc = createPeerConnection();
       stream.getTracks().forEach((track) => {
-        log('Accept', 'Adding local track:', track.kind);
+        log('addTrack', `Adding local ${track.kind} track: ${track.label}`);
         pc.addTrack(track, stream);
       });
 
-      log('Answer', 'Setting remote description (incoming offer)...');
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Received
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Video] 📥 Offer Received', 'color:#6366f1;font-weight:bold');
+      console.log('  offer.type     :', incomingOffer?.type);
+      console.log('  from socket    :', targetSocketIdRef.current);
+      console.log('  sdp (excerpt)  :', incomingOffer?.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
+
       await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
-      log('Answer', 'Remote desc set. signalingState:', pc.signalingState);
       await processQueuedIceCandidates(pc);
 
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Created
+      // ─────────────────────────────────────────────────────────────────
       const answer = await pc.createAnswer();
-      log('Answer', 'Created answer:', answer.type);
-      await pc.setLocalDescription(answer);
-      log('Answer', 'Local desc set. signalingState:', pc.signalingState);
+      console.group('%c[Video] 📤 Answer Created', 'color:#3b82f6;font-weight:bold');
+      console.log('  type           :', answer.type);
+      console.log('  signalingState :', pc.signalingState);
+      console.log('  sdp (excerpt)  :', answer.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
 
-      // Route answer to specific caller socket
+      await pc.setLocalDescription(answer);
       socket.emit('video_call_answer', { toRoom: roomId, toSocketId: targetSocketIdRef.current, answer });
-      log('Answer', 'Answer emitted to socket:', targetSocketIdRef.current);
+      log('Answer Created', 'Answer sent to socket:', targetSocketIdRef.current);
       setCallState('connected');
       setPeerStatus('Video Call Active');
     } catch (err) {
@@ -353,10 +405,19 @@ export default function VideoCallModal({
 
     const handleVideoCallAnswered = async ({ answer }) => {
       const pc = peerConnectionRef.current;
-      log('Answer', 'Received video answer. signalingState:', pc?.signalingState);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Received
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Video] 📥 Answer Received', 'color:#6366f1;font-weight:bold');
+      console.log('  answer.type    :', answer?.type);
+      console.log('  signalingState :', pc?.signalingState);
+      console.log('  sdp (excerpt)  :', answer?.sdp?.substring(0, 120) + '...');
+      console.groupEnd();
+
       if (pc && pc.signalingState !== 'stable') {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        log('Answer', 'Remote desc set from answer. signalingState:', pc.signalingState);
+        log('Answer Received', 'Remote description set. signalingState:', pc.signalingState);
         await processQueuedIceCandidates(pc);
         setCallState('connected');
         setPeerStatus('Video Call Active');
@@ -365,16 +426,26 @@ export default function VideoCallModal({
 
     const handleIceCandidate = async ({ candidate }) => {
       const pc = peerConnectionRef.current;
-      log('ICE', 'Received ICE candidate:', candidate?.type, candidate?.protocol);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: ICE Candidate Received
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Video] 📥 ICE Candidate Received', 'color:#f59e0b;font-weight:bold');
+      console.log('  type           :', candidate?.type);
+      console.log('  protocol       :', candidate?.protocol);
+      console.log('  address        :', candidate?.address);
+      console.log('  remoteDesc set :', !!(pc?.remoteDescription?.type));
+      console.groupEnd();
+
       if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          log('ICE', 'Candidate added successfully');
+          log('ICE Candidate Received', 'Added successfully');
         } catch (err) {
-          log('ICE', 'Failed to add candidate:', err.message);
+          log('ICE Candidate Received', 'Failed:', err.message);
         }
       } else {
-        log('ICE', 'Queuing candidate (no remote desc yet)');
+        log('ICE Candidate Received', 'Queuing — remote desc not set yet');
         iceCandidateQueueRef.current.push(candidate);
       }
     };
