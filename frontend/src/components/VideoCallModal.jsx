@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 
 const ICE_SERVERS = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' }
+  ]
 };
 
 export default function VideoCallModal({
@@ -32,23 +37,27 @@ export default function VideoCallModal({
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const iceCandidateQueueRef = useRef([]);
 
-  // Initialize peer connection
+  // Create & initialize WebRTC peer connection
   const createPeerConnection = () => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
+    // ICE Candidate Generation Event
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit('ice_candidate', { toRoom: roomId, candidate: event.candidate });
       }
     };
 
+    // Remote Video Track Received
     pc.ontrack = (event) => {
       if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
+    // Connection State Monitor
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
         setCallState('connected');
@@ -62,7 +71,19 @@ export default function VideoCallModal({
     return pc;
   };
 
-  // Start Video Call (Caller)
+  // Process queued ICE candidates after setRemoteDescription
+  const processQueuedIceCandidates = async (pc) => {
+    while (iceCandidateQueueRef.current.length > 0) {
+      const candidate = iceCandidateQueueRef.current.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error('[WebRTC Video Error] Failed to add queued ICE candidate:', err);
+      }
+    }
+  };
+
+  // Start Video Call (Caller Flow)
   const startCall = async () => {
     try {
       setCallState('calling');
@@ -88,7 +109,7 @@ export default function VideoCallModal({
     }
   };
 
-  // Accept Incoming Video Call (Callee)
+  // Accept Incoming Video Call (Callee Flow)
   const acceptCall = async () => {
     try {
       setCallState('connecting');
@@ -105,6 +126,8 @@ export default function VideoCallModal({
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+      await processQueuedIceCandidates(pc);
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -113,6 +136,7 @@ export default function VideoCallModal({
       setPeerStatus('Video Call Active');
     } catch (err) {
       console.error('[WebRTC Error] Could not accept video call:', err);
+      setPeerStatus('Failed to connect video stream');
     }
   };
 
@@ -154,7 +178,7 @@ export default function VideoCallModal({
         const senders = peerConnectionRef.current.getSenders();
         const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
         if (videoSender) {
-          videoSender.replaceTrack(screenTrack);
+          await videoSender.replaceTrack(screenTrack);
         }
 
         if (localVideoRef.current) {
@@ -173,7 +197,7 @@ export default function VideoCallModal({
         console.error('[Screen Capture Error] Could not start screen sharing:', err);
       }
     } else {
-      stopScreenShare();
+      await stopScreenShare();
     }
   };
 
@@ -189,7 +213,7 @@ export default function VideoCallModal({
       const senders = peerConnectionRef.current.getSenders();
       const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
       if (videoSender && cameraTrack) {
-        videoSender.replaceTrack(cameraTrack);
+        await videoSender.replaceTrack(cameraTrack);
       }
 
       if (localVideoRef.current) {
@@ -202,7 +226,7 @@ export default function VideoCallModal({
     socket.emit('screen_share_stop', { toRoom: roomId, username: user?.username });
   };
 
-  // End Video Call
+  // End Video Call & Clean Up
   const handleEndCall = () => {
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -214,11 +238,20 @@ export default function VideoCallModal({
       localStreamRef.current = null;
     }
 
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
 
+    iceCandidateQueueRef.current = [];
     socket.emit('end_video_call', { toRoom: roomId });
     setCallState('idle');
     setIsCameraOff(false);
@@ -240,20 +273,25 @@ export default function VideoCallModal({
 
     // Signaling socket event listeners
     const handleVideoCallAnswered = async ({ answer }) => {
-      if (peerConnectionRef.current && peerConnectionRef.current.signalingState !== 'stable') {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      const pc = peerConnectionRef.current;
+      if (pc && pc.signalingState !== 'stable') {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        await processQueuedIceCandidates(pc);
         setCallState('connected');
         setPeerStatus('Video Call Active');
       }
     };
 
     const handleIceCandidate = async ({ candidate }) => {
-      if (peerConnectionRef.current) {
+      const pc = peerConnectionRef.current;
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (err) {
           console.error('[WebRTC Error] Failed to add ICE candidate:', err);
         }
+      } else {
+        iceCandidateQueueRef.current.push(candidate);
       }
     };
 
@@ -288,97 +326,87 @@ export default function VideoCallModal({
   if (!isOpen) return null;
 
   return (
-    <div className="video-call-overlay">
-      <div className={`video-call-modal-card ${focusedParticipant ? 'fullscreen-mode' : ''}`}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 17, 23, 0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
+      <div style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, width: '100%', maxWidth: focusedParticipant ? 960 : 720, overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.6)', transition: 'all 0.2s ease' }}>
         {/* Header */}
-        <div className="video-call-header">
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #313743', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161921' }}>
           <div>
-            <h3>📹 #{roomName} Video Room</h3>
-            <span className="call-status-badge">{peerStatus}</span>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>📹 #{roomName} Video Room</h3>
+            <span style={{ fontSize: 11, color: '#22C55E' }}>{peerStatus}</span>
           </div>
           {screenSharerName && (
-            <div className="screen-share-banner">
+            <div style={{ padding: '4px 10px', background: 'rgba(124, 58, 237, 0.2)', border: '1px solid #7C3AED', borderRadius: 6, fontSize: 11, color: '#8B5CF6' }}>
               🖥️ {screenSharerName} is sharing screen
             </div>
           )}
         </div>
 
         {/* Video Grid Layout */}
-        <div className={`video-grid-container ${focusedParticipant ? 'has-focused' : ''}`}>
+        <div style={{ display: 'grid', gridTemplateColumns: focusedParticipant ? '1fr' : '1fr 1fr', gap: 12, padding: 16, background: '#0F1117', minHeight: 320 }}>
           {/* Local Video Stream Card */}
-          <div
-            className={`video-tile ${focusedParticipant === 'local' ? 'focused-tile' : ''}`}
-            onClick={() => setFocusedParticipant((prev) => (prev === 'local' ? null : 'local'))}
-            title="Click to toggle full-screen focus"
-          >
-            {isCameraOff ? (
-              <div className="camera-off-placeholder">
-                <img
-                  src={user?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=ChatUser'}
-                  alt={user?.username}
-                  className="camera-off-avatar"
-                />
-                <span>Camera Off</span>
+          {(!focusedParticipant || focusedParticipant === 'local') && (
+            <div
+              onClick={() => setFocusedParticipant((prev) => (prev === 'local' ? null : 'local'))}
+              title="Click to toggle full-screen focus"
+              style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#1D2129', aspectRatio: '16/9', cursor: 'pointer', border: '1px solid #313743' }}
+            >
+              {isCameraOff && !isScreenSharing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9CA3AF', gap: 8 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#7C3AED', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 600 }}>
+                    {user?.username?.substring(0, 2).toUpperCase() || 'YO'}
+                  </div>
+                  <span style={{ fontSize: 12 }}>Camera Off</span>
+                </div>
+              ) : (
+                <video ref={localVideoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              )}
+              <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '2px 8px', background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 11, color: '#fff' }}>
+                {isScreenSharing ? 'Your Screen Share' : `You (${user?.username})`} {isMuted && '🔇'}
               </div>
-            ) : (
-              <video ref={localVideoRef} autoPlay muted playsInline className="video-feed-element" />
-            )}
-            <div className="video-tile-label">
-              You ({user?.username}) {isMuted && '🔇'}
             </div>
-          </div>
+          )}
 
           {/* Remote Video Stream Card */}
-          <div
-            className={`video-tile ${focusedParticipant === 'remote' ? 'focused-tile' : ''}`}
-            onClick={() => setFocusedParticipant((prev) => (prev === 'remote' ? null : 'remote'))}
-            title="Click to toggle full-screen focus"
-          >
-            <video ref={remoteVideoRef} autoPlay playsInline className="video-feed-element" />
-            <div className="video-tile-label">
-              {incomingCaller?.username || 'Peer Participant'}
+          {(!focusedParticipant || focusedParticipant === 'remote') && (
+            <div
+              onClick={() => setFocusedParticipant((prev) => (prev === 'remote' ? null : 'remote'))}
+              title="Click to toggle full-screen focus"
+              style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#1D2129', aspectRatio: '16/9', cursor: 'pointer', border: '1px solid #313743' }}
+            >
+              <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '2px 8px', background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 11, color: '#fff' }}>
+                {incomingCaller?.username || 'Peer Participant'}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Call Controls Toolbar */}
-        <div className="video-call-toolbar">
+        <div style={{ padding: 16, borderTop: '1px solid #313743', display: 'flex', justifyContent: 'center', gap: 10, background: '#161921' }}>
           {callState === 'incoming' ? (
             <>
-              <button className="btn-call-accept" onClick={acceptCall}>
+              <button onClick={acceptCall} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#22C55E', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 📹 Accept Video Call
               </button>
-              <button className="btn-call-decline" onClick={handleEndCall}>
+              <button onClick={handleEndCall} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#EF4444', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 🔴 Decline
               </button>
             </>
           ) : (
             <>
-              <button
-                className={`btn-toolbar-icon ${isCameraOff ? 'off' : ''}`}
-                onClick={toggleCamera}
-                title="Toggle Camera On/Off"
-              >
+              <button onClick={toggleCamera} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #313743', background: isCameraOff ? 'rgba(239, 68, 68, 0.2)' : '#242930', color: isCameraOff ? '#EF4444' : '#fff', fontSize: 12, cursor: 'pointer' }}>
                 {isCameraOff ? '📷 Camera Off' : '📷 Camera On'}
               </button>
 
-              <button
-                className={`btn-toolbar-icon ${isMuted ? 'off' : ''}`}
-                onClick={toggleMute}
-                title="Toggle Microphone Mute"
-              >
+              <button onClick={toggleMute} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #313743', background: isMuted ? 'rgba(239, 68, 68, 0.2)' : '#242930', color: isMuted ? '#EF4444' : '#fff', fontSize: 12, cursor: 'pointer' }}>
                 {isMuted ? '🎙️ Unmute' : '🎤 Mute'}
               </button>
 
-              <button
-                className={`btn-toolbar-icon ${isScreenSharing ? 'active-share' : ''}`}
-                onClick={toggleScreenShare}
-                title="Share Screen using Screen Capture API"
-              >
+              <button onClick={toggleScreenShare} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #7C3AED', background: isScreenSharing ? '#7C3AED' : 'rgba(124, 58, 237, 0.2)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
                 {isScreenSharing ? '🖥️ Stop Share' : '🖥️ Share Screen'}
               </button>
 
-              <button className="btn-call-end" onClick={handleEndCall} title="End Video Call">
+              <button onClick={handleEndCall} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#EF4444', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
                 🔴 End Call
               </button>
             </>
@@ -388,3 +416,13 @@ export default function VideoCallModal({
     </div>
   );
 }
+
+VideoCallModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  roomId: PropTypes.string.isRequired,
+  roomName: PropTypes.string.isRequired,
+  isIncomingCall: PropTypes.bool,
+  incomingCaller: PropTypes.object,
+  incomingOffer: PropTypes.object,
+  onCloseCall: PropTypes.func.isRequired
+};

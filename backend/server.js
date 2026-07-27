@@ -12,20 +12,21 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 const server = http.createServer(app);
 
-// Trust proxy for HTTPS load balancers on cloud hosts (Render, Railway, Heroku)
+// Trust proxy for HTTPS load balancers on cloud hosts (Render, Railway, Heroku, Vercel)
 app.set('trust proxy', 1);
 
-// Configure dynamic CORS origins
+// Configure dynamic CORS origins safely
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((url) => url.trim());
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    // Allow server-to-server requests (!origin), explicit allowed origins, and Vercel deployments
+    if (!origin || allowedOrigins.includes(origin) || (typeof origin === 'string' && origin.endsWith('.vercel.app'))) {
       callback(null, true);
     } else {
-      callback(null, true);
+      callback(new Error(`[CORS Error] Request from origin ${origin} blocked.`));
     }
   },
   credentials: true
@@ -47,7 +48,7 @@ app.use(errorHandler);
 // Initialize Socket.io
 initSocket(server);
 
-// Start Server & Connect Database
+// Start Server & Connect Database (Uses process.env.PORT provided by cloud host)
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {

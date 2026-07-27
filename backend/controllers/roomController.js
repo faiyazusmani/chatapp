@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
 const Room = require('../models/Room');
-const User = require('../models/User');
-const { memoryUsers } = require('./authController');
 
 // In-memory rooms fallback store
 const memoryRooms = new Map();
@@ -350,15 +348,6 @@ const getRoomMembers = async (req, res, next) => {
       }
 
       const membersList = room.members.map((mId) => {
-        const memUser = memoryUsers.get(mId);
-        if (memUser) {
-          return {
-            _id: memUser._id,
-            username: memUser.username,
-            email: memUser.email,
-            avatar: memUser.avatar
-          };
-        }
         return {
           _id: mId,
           username: mId === req.user._id || mId === req.user.id ? req.user.username : 'Chat Member',

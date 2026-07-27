@@ -7,8 +7,6 @@ import ChatWindow from '../components/ChatWindow';
 import api from '../services/api';
 
 export default function Chat() {
-
-
   const [rooms, setRooms] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
@@ -48,7 +46,7 @@ export default function Chat() {
     // Track recent room
     setRecentRooms((prev) => {
       const filtered = prev.filter((r) => (r._id || r.id) !== (room._id || room.id));
-      return [room, ...filtered].slice(0, 5);
+      return [room, ...filtered].slice(0, 10);
     });
 
     // Track joined room
@@ -117,120 +115,128 @@ export default function Chat() {
   });
 
   return (
-    <div className="dashboard-layout">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenCreateModal={() => setIsCreateModalOpen(true)}
-        onOpenJoinModal={() => setIsJoinModalOpen(true)}
-        recentRooms={recentRooms}
-        onSelectRoom={handleSelectRoom}
-      />
+    <div className="gajim-window">
+      {/* Gajim Titlebar */}
+      <div className="gajim-titlebar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: '#22c55e' }}>🟢</span>
+        </div>
+        <div className="gajim-titlebar-title">Gajim</div>
+        <div className="gajim-titlebar-controls">
+          <button className="gajim-titlebar-btn" title="Help">?</button>
+          <button className="gajim-titlebar-btn" title="Minimize">&minus;</button>
+          <button className="gajim-titlebar-btn" title="Maximize">&#9633;</button>
+          <button className="gajim-titlebar-btn" title="Close">&times;</button>
+        </div>
+      </div>
 
-      {/* Main Dashboard Content */}
-      <main className="dashboard-main">
-        {/* Toast Notification Banner */}
-        {toastMessage && (
-          <div
-            style={{
-              padding: '0.75rem 1.25rem',
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid var(--success)',
-              color: '#6ee7b7',
-              borderRadius: '8px',
-              marginBottom: '1.5rem',
-              fontWeight: 600,
-              display: 'flex',
-              justify: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>✨ {toastMessage}</span>
-            <button
-              onClick={() => setToastMessage('')}
-              style={{ background: 'transparent', color: 'inherit', fontSize: '1.1rem' }}
+      {/* Gajim Desktop Main Body */}
+      <div className="gajim-body">
+        {/* Gajim 2-Column Sidebar */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenCreateModal={() => setIsCreateModalOpen(true)}
+          onOpenJoinModal={() => setIsJoinModalOpen(true)}
+          recentRooms={recentRooms}
+          rooms={displayedRooms}
+          activeRoom={activeRoom}
+          onSelectRoom={handleSelectRoom}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+        />
+
+        {/* Main Workspace Area */}
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+          {/* Toast Notification Banner */}
+          {toastMessage && (
+            <div
+              style={{
+                padding: '8px 16px',
+                background: 'rgba(34, 197, 94, 0.15)',
+                borderBottom: '1px solid #22c55e',
+                color: '#4ade80',
+                fontSize: 12,
+                fontWeight: 600,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
             >
-              &times;
-            </button>
-          </div>
-        )}
+              <span>✨ {toastMessage}</span>
+              <button
+                onClick={() => setToastMessage('')}
+                style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+              >
+                &times;
+              </button>
+            </div>
+          )}
 
-        {activeRoom ? (
-          /* Active Room Real-Time Chat Workspace */
-          <ChatWindow
-            room={activeRoom}
-            onLeaveRoom={handleLeaveRoom}
-            onBack={() => setActiveRoom(null)}
-          />
-        ) : (
-          /* Rooms Explorer View */
-          <div>
-            <div className="dashboard-header">
-              <div className="dashboard-title-row">
-                <div>
-                  <h1>{activeTab === 'joined' ? 'Your Joined Rooms' : 'Explore Chat Rooms'}</h1>
-                  <p className="dashboard-subtitle">
-                    {activeTab === 'joined'
-                      ? 'Rooms you have recently entered and joined.'
-                      : 'Discover open channels or create your own room to start chatting.'}
-                  </p>
+          {activeRoom ? (
+            /* Active Real-Time Chat Workspace */
+            <ChatWindow
+              room={activeRoom}
+              onLeaveRoom={handleLeaveRoom}
+              onBack={() => setActiveRoom(null)}
+            />
+          ) : (
+            /* Explore Rooms Grid View */
+            <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#181a20' }}>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f3f4f6', margin: '0 0 6px' }}>
+                  {activeTab === 'joined' ? 'Your Joined Rooms' : 'Explore Chat Rooms'}
+                </h2>
+                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+                  Select a room from the sidebar or pick one below to start chatting.
+                </p>
+
+                {/* Category Pills */}
+                <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+                  {['All', 'General', 'Tech', 'Gaming', 'Music', 'Random'].map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: 6,
+                        border: '1px solid #2d3241',
+                        background: selectedCategory === category ? '#9333ea' : '#1f222b',
+                        color: selectedCategory === category ? '#fff' : '#9ca3af',
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {category}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Search Bar */}
-              <div className="search-bar-wrapper">
-                <span className="search-icon">🔍</span>
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="Search rooms by name, code (e.g. ROOM-8DL7), or keywords..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              {/* Category Filter Pills */}
-              <div className="category-tabs-container">
-                {['All', 'General', 'Tech', 'Gaming', 'Music', 'Random'].map((category) => (
+              {displayedRooms.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center', background: '#1c1f28', borderRadius: 10, border: '1px border #2d3241' }}>
+                  <h3 style={{ fontSize: 16, color: '#f3f4f6', margin: '0 0 8px' }}>No Chat Rooms Found</h3>
+                  <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+                    No rooms available in this category yet. Be the first to create one!
+                  </p>
                   <button
-                    key={category}
-                    className={`category-tab-btn ${selectedCategory === category ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setIsCreateModalOpen(true)}
+                    style={{ marginTop: 16, padding: '8px 18px', background: '#9333ea', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
-                    {category}
+                    + Create Room
                   </button>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                  {displayedRooms.map((room) => (
+                    <RoomCard key={room._id || room.id} room={room} onSelectRoom={handleSelectRoom} />
+                  ))}
+                </div>
+              )}
             </div>
-
-            {/* Room Cards Grid */}
-            {displayedRooms.length === 0 ? (
-              <div className="no-rooms-placeholder">
-                <h3>No Chat Rooms Found</h3>
-                <p style={{ marginTop: '0.5rem' }}>
-                  {searchQuery
-                    ? `No rooms matched "${searchQuery}". Try searching by room code or clear filters.`
-                    : 'No rooms available in this category yet. Be the first to create one!'}
-                </p>
-                <button
-                  className="btn-primary"
-                  onClick={() => setIsCreateModalOpen(true)}
-                  style={{ width: 'auto', marginTop: '1.5rem', padding: '0.75rem 1.5rem' }}
-                >
-                  + Create Room
-                </button>
-              </div>
-            ) : (
-              <div className="rooms-grid">
-                {displayedRooms.map((room) => (
-                  <RoomCard key={room._id || room.id} room={room} onSelectRoom={handleSelectRoom} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
 
       {/* Create Room Modal */}
       <CreateRoomModal

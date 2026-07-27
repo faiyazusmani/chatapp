@@ -23,15 +23,16 @@ const initSocket = (server) => {
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        if (!origin || allowedOrigins.includes(origin) || (typeof origin === 'string' && origin.endsWith('.vercel.app'))) {
           callback(null, true);
         } else {
-          callback(null, true);
+          callback(new Error(`[Socket CORS Error] Blocked origin ${origin}`));
         }
       },
       methods: ['GET', 'POST'],
       credentials: true
-    }
+    },
+    transports: ['websocket', 'polling']
   });
 
   io.on('connection', (socket) => {
@@ -39,6 +40,8 @@ const initSocket = (server) => {
 
     // Join room
     socket.on('join_room', ({ roomId, user }) => {
+      socket.roomId = roomId;
+      socket.user = user;
       socket.join(roomId);
       console.log(`[Socket.io] User ${user?.username || socket.id} joined room: ${roomId}`);
       socket.to(roomId).emit('user_joined', { user, roomId });
@@ -47,6 +50,8 @@ const initSocket = (server) => {
     // Leave room
     socket.on('leave_room', ({ roomId, user }) => {
       socket.leave(roomId);
+      socket.roomId = null;
+      socket.user = null;
       console.log(`[Socket.io] User ${user?.username || socket.id} left room: ${roomId}`);
       socket.to(roomId).emit('user_left', { user, roomId });
     });
@@ -243,7 +248,12 @@ const initSocket = (server) => {
       socket.to(toRoom).emit('video_call_ended');
     });
 
+    // Disconnect Cleanup Handling
     socket.on('disconnect', () => {
+      if (socket.roomId && socket.user) {
+        socket.to(socket.roomId).emit('user_left', { user: socket.user, roomId: socket.roomId });
+        socket.to(socket.roomId).emit('user_stop_typing', { username: socket.user.username, roomId: socket.roomId });
+      }
       console.log(`[Socket.io] Client disconnected: ${socket.id}`);
     });
   });

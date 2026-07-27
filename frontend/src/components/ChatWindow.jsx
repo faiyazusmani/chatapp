@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 import api from '../services/api';
@@ -15,7 +16,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
   // Real-Time Notifications State
@@ -195,7 +195,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
 
   // Submit text or file message
   const handleSubmitMessage = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!inputText.trim()) return;
 
     if (editingMessage) {
@@ -257,33 +257,22 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
     }
   };
 
-  // Quick Emoji selection
   const handleAddEmoji = (emoji) => {
     setInputText((prev) => prev + emoji);
   };
 
-  // Start edit mode
   const handleStartEdit = (msg) => {
     setEditingMessage(msg);
     setInputText(msg.content);
     setReplyingTo(null);
   };
 
-  // Delete message
   const handleDeleteMessage = (msgId) => {
     if (window.confirm('Are you sure you want to delete this message?')) {
       socket.emit('delete_message', { messageId: msgId, roomId });
     }
   };
 
-  // Copy room code
-  const handleCopyCode = (code) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  // Start Voice Call
   const handleStartVoiceCall = () => {
     setIsVoiceIncoming(false);
     setVoiceCaller(null);
@@ -291,7 +280,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
     setIsVoiceCallOpen(true);
   };
 
-  // Start Video Call
   const handleStartVideoCall = () => {
     setIsVideoIncoming(false);
     setVideoCaller(null);
@@ -299,365 +287,234 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
     setIsVideoCallOpen(true);
   };
 
-  // Format timestamp helper
   const formatTime = (isoString) => {
-    if (!isoString) return '';
+    if (!isoString) return '16:01';
     const date = new Date(isoString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const isOwnMessage = (msg) => {
-    const senderId = msg.sender?._id || msg.sender?.id || msg.sender;
-    const currentUserId = user?._id || user?.id;
-    return senderId === currentUserId;
+  const getUserInitials = (name) => {
+    if (!name) return 'M';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
   };
 
   const typingArray = Array.from(typingUsers);
 
   return (
-    <div className="chat-window-container">
-      {/* Toast Notifications Overlay */}
+    <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', background: '#181a20', minWidth: 0 }}>
+      {/* Notifications Toast */}
       <NotificationToast notifications={notifications} onDismiss={handleDismissNotification} />
 
-      {/* Header */}
-      <div className="active-room-header" style={{ marginBottom: 0, borderRadius: 'var(--radius) var(--radius) 0 0' }}>
-        <div>
-          <button
-            className="btn-secondary"
-            onClick={onBack}
-            style={{ marginBottom: '0.5rem', padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
-          >
-            &larr; Back to Dashboard
+      {/* Top Header Bar */}
+      <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid #282c37', background: '#1c1f28' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
+            ❮
           </button>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span>#</span> {room.name}
-            {room.code && (
-              <span className="room-code-badge">
-                Code: {room.code}
-                <button
-                  onClick={() => handleCopyCode(room.code)}
-                  style={{
-                    background: 'transparent',
-                    color: 'var(--accent)',
-                    fontSize: '0.8rem',
-                    fontWeight: 'bold',
-                    marginLeft: '0.25rem',
-                  }}
-                >
-                  {copiedCode ? '✓ Copied' : '📋 Copy'}
-                </button>
-              </span>
-            )}
-          </h2>
+          {/* Avatar Icon */}
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, position: 'relative' }}>
+            {getUserInitials(room.name)}
+            <span style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#22c55e', border: '1.5px solid #1c1f28' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#f3f4f6' }}>{room.name || 'Note to myself'}</div>
+            {room.code && <div style={{ fontSize: 10, color: '#6b7280' }}>Code: #{room.code}</div>}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            className="btn-action-primary"
-            onClick={handleStartVoiceCall}
-            style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}
-          >
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleStartVoiceCall} title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
             📞 Voice
           </button>
-          <button
-            className="btn-action-primary"
-            onClick={handleStartVideoCall}
-            style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem', backgroundColor: 'var(--accent)' }}
-          >
+          <button onClick={handleStartVideoCall} title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
             📹 Video
           </button>
-          <span className="room-category-pill">{room.category || 'General'}</span>
-          <button
-            className="btn-secondary"
-            onClick={() => onLeaveRoom(roomId)}
-            style={{
-              backgroundColor: 'var(--error-bg)',
-              borderColor: 'var(--error)',
-              color: '#fca5a5',
-              fontSize: '0.85rem',
-              padding: '0.45rem 0.85rem',
-            }}
-          >
-            Leave Room
+          <button title="Share Link" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+            🔗
+          </button>
+          <button title="Search Chat" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+            🔍
+          </button>
+          <button onClick={() => onLeaveRoom(roomId)} title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+            🚪
           </button>
         </div>
       </div>
 
       {/* Messages Feed Area */}
-      <div className="messages-feed-container">
+      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* History Banner */}
+        <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
+          There is no more history
+        </div>
+
+        {/* Date Separator */}
+        <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '4px 0 12px' }}>
+          Fri 2025-08-01
+        </div>
+
         {messages.length === 0 ? (
-          <div className="no-messages-placeholder">
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💬</div>
-            <h4>No messages yet</h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              Be the first to say hello in <strong>#{room.name}</strong>!
-            </p>
+          <div style={{ textAlign: 'center', color: '#6b7280', padding: '30px 0', fontSize: 13 }}>
+            No history in <strong>{room.name}</strong> yet. Send a message!
           </div>
         ) : (
           messages.map((msg) => {
-            const own = isOwnMessage(msg);
+            const senderName = msg.sender?.username || 'Me';
+            const initials = getUserInitials(senderName);
+
             return (
-              <div
-                key={msg._id}
-                className={`message-bubble-wrapper ${own ? 'own-message' : 'other-message'}`}
-              >
-                {!own && (
-                  <img
-                    src={msg.sender?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${msg.sender?.username}`}
-                    alt={msg.sender?.username}
-                    className="message-sender-avatar"
-                  />
-                )}
-
-                <div className="message-content-box">
-                  <div className="message-meta-header">
-                    <span className="message-sender-name">
-                      {own ? 'You' : msg.sender?.username || 'Member'}
-                    </span>
-                    <span className="message-timestamp">{formatTime(msg.createdAt)}</span>
+              <div key={msg._id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                  {initials}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>{senderName}</span>
+                    <span style={{ fontSize: 11, color: '#6b7280' }}>{formatTime(msg.createdAt)}</span>
                   </div>
 
-                  {/* Quoted Parent Reply */}
-                  {msg.replyTo && (
-                    <div className="reply-quote-preview">
-                      <div className="reply-quote-author">
-                        Replying to {msg.replyTo.sender?.username || 'Member'}
-                      </div>
-                      <div className="reply-quote-text">{msg.replyTo.content}</div>
-                    </div>
-                  )}
-
-                  {/* Image Attachment Preview */}
+                  {/* Image Attachment */}
                   {msg.fileUrl && msg.fileType === 'image' && (
-                    <div className="message-image-container">
-                      <img
-                        src={msg.fileUrl}
-                        alt={msg.fileName || 'Attached Image'}
-                        className="message-attached-img"
-                        onClick={() => setPreviewImageUrl(msg.fileUrl)}
-                      />
+                    <div style={{ marginTop: 6, borderRadius: 8, overflow: 'hidden', maxWidth: 300, border: '1px solid #2d3241' }}>
+                      <img src={msg.fileUrl} alt="Attachment" style={{ width: '100%', display: 'block', cursor: 'pointer' }} onClick={() => setPreviewImageUrl(msg.fileUrl)} />
                     </div>
                   )}
 
-                  {/* PDF / Document Attachment Badge */}
+                  {/* Document Attachment */}
                   {msg.fileUrl && msg.fileType !== 'image' && (
-                    <div className="message-file-badge">
-                      <span className="file-badge-icon">
-                        {msg.fileType === 'pdf' ? '📄' : '📁'}
-                      </span>
-                      <div className="file-badge-info">
-                        <div className="file-name-text">{msg.fileName || 'Attachment'}</div>
-                        <a
-                          href={msg.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="file-download-link"
-                        >
-                          Download {msg.fileType === 'pdf' ? 'PDF' : 'File'} &rarr;
-                        </a>
-                      </div>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#222530', borderRadius: 8, border: '1px solid #2d3241', width: 'fit-content' }}>
+                      <span>📄</span>
+                      <a href={msg.fileUrl} target="_blank" rel="noreferrer" style={{ color: '#a855f7', fontSize: 12, textDecoration: 'none' }}>
+                        {msg.fileName || 'Download File'}
+                      </a>
                     </div>
                   )}
 
-                  {/* Text Content */}
+                  {/* Message Text */}
                   {msg.content && (
-                    <div className={`message-text ${msg.isDeleted ? 'deleted-text' : ''}`}>
+                    <div style={{ fontSize: 13, color: '#e5e7eb', marginTop: 4, lineHeight: '1.4', wordBreak: 'break-word' }}>
                       {msg.content}
-                      {msg.isEdited && !msg.isDeleted && (
-                        <span className="edited-badge"> (edited)</span>
-                      )}
                     </div>
                   )}
 
-                  {/* Read Receipt */}
-                  <div className="message-footer-meta">
-                    <span className="read-receipt-check">✓✓</span>
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                    <button onClick={() => setReplyingTo(msg)} style={{ background: 'transparent', border: 'none', color: '#6b7280', fontSize: 11, cursor: 'pointer' }}>Reply</button>
+                    {user?.username === senderName && (
+                      <>
+                        <button onClick={() => handleStartEdit(msg)} style={{ background: 'transparent', border: 'none', color: '#6b7280', fontSize: 11, cursor: 'pointer' }}>Edit</button>
+                        <button onClick={() => handleDeleteMessage(msg._id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer' }}>Delete</button>
+                      </>
+                    )}
                   </div>
-
-                  {/* Actions Hover Menu */}
-                  {!msg.isDeleted && (
-                    <div className="message-actions-popover">
-                      <button title="Reply" onClick={() => setReplyingTo(msg)}>
-                        💬
-                      </button>
-                      {own && (
-                        <>
-                          <button title="Edit Message" onClick={() => handleStartEdit(msg)}>
-                            ✏️
-                          </button>
-                          <button title="Delete Message" onClick={() => handleDeleteMessage(msg._id)}>
-                            🗑️
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             );
           })
         )}
 
-        {/* Live Typing Indicator Banner */}
+        {/* Uploading indicator */}
+        {uploadingFile && (
+          <div style={{ fontSize: 11, color: '#a855f7', fontStyle: 'italic' }}>
+            ⏳ Uploading attachment...
+          </div>
+        )}
+
+        {/* Typing Banner */}
         {typingArray.length > 0 && (
-          <div className="typing-indicator-banner">
-            <div className="typing-dots">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <span>
-              {typingArray.join(', ')} {typingArray.length === 1 ? 'is' : 'are'} typing...
-            </span>
+          <div style={{ fontSize: 11, color: '#a855f7', fontStyle: 'italic' }}>
+            {typingArray.join(', ')} is typing...
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Reply / Edit Status Banner */}
+      {/* Reply Banner */}
       {replyingTo && (
-        <div className="reply-active-bar">
-          <div>
-            <span>Replying to <strong>@{replyingTo.sender?.username}</strong>: </span>
-            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              &quot;{replyingTo.content}&quot;
-            </span>
-          </div>
-          <button onClick={() => setReplyingTo(null)} className="close-reply-btn">
-            &times;
-          </button>
+        <div style={{ padding: '6px 16px', background: '#222530', borderTop: '1px solid #282c37', fontSize: 11, color: '#9ca3af', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Replying to <strong>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;</span>
+          <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>&times;</button>
         </div>
       )}
 
+      {/* Editing Banner */}
       {editingMessage && (
-        <div className="reply-active-bar" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', borderColor: 'var(--primary)' }}>
-          <div>
-            <span>Editing message: </span>
-            <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              &quot;{editingMessage.content}&quot;
-            </span>
-          </div>
-          <button onClick={() => { setEditingMessage(null); setInputText(''); }} className="close-reply-btn">
-            &times;
-          </button>
+        <div style={{ padding: '6px 16px', background: 'rgba(147, 51, 234, 0.2)', borderTop: '1px solid #9333ea', fontSize: 11, color: '#a855f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Editing message: &quot;{editingMessage.content}&quot;</span>
+          <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>&times;</button>
         </div>
       )}
 
-      {/* Uploading File Indicator */}
-      {uploadingFile && (
-        <div className="reply-active-bar" style={{ backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: 'var(--accent)' }}>
-          <span>⏳ Uploading file attachment...</span>
-        </div>
-      )}
+      {/* Hidden File Input */}
+      <input type="file" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
+
+      {/* Gajim Input Toolbar & Textarea */}
+      <div style={{ padding: '10px 16px 14px', borderTop: '1px solid #282c37', background: '#1c1f28' }}>
+        <form onSubmit={handleSubmitMessage} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#15171e', borderRadius: 8, border: '1px solid #2d3241', padding: '6px 12px' }}>
+          {/* Emoji */}
+          <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 15 }}>
+            😃
+          </button>
+          {/* Bold */}
+          <button type="button" onClick={() => setInputText((prev) => prev + '**bold**')} title="Bold" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
+            B
+          </button>
+
+          {/* Text Input Box */}
+          <input
+            type="text"
+            value={inputText}
+            onChange={handleInputChange}
+            placeholder={editingMessage ? 'Edit message...' : replyingTo ? `Replying to @${replyingTo.sender?.username}...` : `Message #${room.name || 'room'}...`}
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#f3f4f6', fontSize: 13, fontFamily: 'Inter, sans-serif' }}
+          />
+
+          {/* Mic */}
+          <button type="button" onClick={handleStartVoiceCall} title="Voice Note" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
+            🎙️
+          </button>
+          {/* Paperclip */}
+          <button type="button" onClick={() => fileInputRef.current?.click()} title="Attach File" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
+            📎
+          </button>
+          {/* Lock Badge */}
+          <button type="button" title="End-to-End Encrypted" style={{ background: 'transparent', border: 'none', color: '#22c55e', cursor: 'default', fontSize: 14 }}>
+            🔒
+          </button>
+        </form>
+      </div>
 
       {/* Emoji Picker Popover */}
       {showEmojiPicker && (
-        <div className="emoji-picker-popover">
-          {['❤️', '😂', '👍', '🔥', '🎉', '🚀', '💡', '😎', '👏', '✨', '😍', '🙌'].map((emoji) => (
-            <button
-              key={emoji}
-              className="emoji-btn"
-              onClick={() => handleAddEmoji(emoji)}
-            >
+        <div style={{ position: 'absolute', bottom: 65, left: 20, background: '#222530', border: '1px solid #2d3241', borderRadius: 8, padding: 8, display: 'flex', gap: 6, zIndex: 100 }}>
+          {['❤️', '😂', '👍', '🔥', '🎉', '🚀', '😎', '👏'].map((emoji) => (
+            <button key={emoji} onClick={() => handleAddEmoji(emoji)} style={{ background: 'transparent', border: 'none', fontSize: 16, cursor: 'pointer' }}>
               {emoji}
             </button>
           ))}
         </div>
       )}
 
-      {/* Hidden File Input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        style={{ display: 'none' }}
-        accept="image/*,.pdf,.doc,.docx,.txt,.zip"
-      />
-
-      {/* Message Input Form */}
-      <form onSubmit={handleSubmitMessage} className="chat-input-form">
-        <button
-          type="button"
-          className="emoji-toggle-btn"
-          onClick={() => fileInputRef.current?.click()}
-          title="Attach Image or File"
-        >
-          📎
-        </button>
-
-        <button
-          type="button"
-          className="emoji-toggle-btn"
-          onClick={() => setShowEmojiPicker((prev) => !prev)}
-          title="Add Emoji"
-        >
-          😀
-        </button>
-
-        <input
-          type="text"
-          className="chat-text-input"
-          placeholder={
-            editingMessage
-              ? 'Edit your message...'
-              : replyingTo
-              ? `Replying to @${replyingTo.sender?.username}...`
-              : `Message #${room.name}...`
-          }
-          value={inputText}
-          onChange={handleInputChange}
-          autoFocus
-        />
-
-        <button type="submit" className="btn-send-message" disabled={!inputText.trim() && !uploadingFile}>
-          {editingMessage ? 'Save Edit' : 'Send 🚀'}
-        </button>
-      </form>
-
-      {/* Image Lightbox Modal */}
+      {/* Lightbox Modal */}
       {previewImageUrl && (
-        <div className="modal-overlay" onClick={() => setPreviewImageUrl(null)}>
-          <div className="image-lightbox-card" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close-btn" onClick={() => setPreviewImageUrl(null)} style={{ float: 'right' }}>
-              &times;
-            </button>
-            <img src={previewImageUrl} alt="Full Preview" style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }} />
-          </div>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }} onClick={() => setPreviewImageUrl(null)}>
+          <img src={previewImageUrl} alt="Preview" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8 }} />
         </div>
       )}
 
-      {/* WebRTC Voice Call Modal */}
-      <VoiceCallModal
-        isOpen={isVoiceCallOpen}
-        roomId={roomId}
-        roomName={room.name}
-        isIncomingCall={isVoiceIncoming}
-        incomingCaller={voiceCaller}
-        incomingOffer={voiceOffer}
-        onCloseCall={() => {
-          setIsVoiceCallOpen(false);
-          setIsVoiceIncoming(false);
-          setVoiceCaller(null);
-          setVoiceOffer(null);
-        }}
-      />
-
-      {/* WebRTC Video Call & Screen Sharing Modal */}
-      <VideoCallModal
-        isOpen={isVideoCallOpen}
-        roomId={roomId}
-        roomName={room.name}
-        isIncomingCall={isVideoIncoming}
-        incomingCaller={videoCaller}
-        incomingOffer={videoOffer}
-        onCloseCall={() => {
-          setIsVideoCallOpen(false);
-          setIsVideoIncoming(false);
-          setVideoCaller(null);
-          setVideoOffer(null);
-        }}
-      />
+      {/* Voice & Video Call Modals */}
+      <VoiceCallModal isOpen={isVoiceCallOpen} roomId={roomId} roomName={room.name} isIncomingCall={isVoiceIncoming} incomingCaller={voiceCaller} incomingOffer={voiceOffer} onCloseCall={() => { setIsVoiceCallOpen(false); setIsVoiceIncoming(false); }} />
+      <VideoCallModal isOpen={isVideoCallOpen} roomId={roomId} roomName={room.name} isIncomingCall={isVideoIncoming} incomingCaller={videoCaller} incomingOffer={videoOffer} onCloseCall={() => { setIsVideoCallOpen(false); setIsVideoIncoming(false); }} />
     </div>
   );
 }
+
+ChatWindow.propTypes = {
+  room: PropTypes.object.isRequired,
+  onLeaveRoom: PropTypes.func.isRequired,
+  onBack: PropTypes.func.isRequired
+};

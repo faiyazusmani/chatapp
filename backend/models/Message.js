@@ -5,7 +5,8 @@ const messageSchema = new mongoose.Schema(
     room: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Room',
-      required: true
+      required: true,
+      index: true
     },
     sender: {
       type: mongoose.Schema.Types.ObjectId,
@@ -54,6 +55,9 @@ const messageSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+// Compound Index for room message querying performance
+messageSchema.index({ room: 1, createdAt: 1 });
 
 const Message = mongoose.model('Message', messageSchema);
 

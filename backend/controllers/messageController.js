@@ -1,7 +1,5 @@
 const mongoose = require('mongoose');
 const Message = require('../models/Message');
-const User = require('../models/User');
-const { memoryUsers } = require('./authController');
 
 // In-memory fallback message store
 const memoryMessages = new Map();

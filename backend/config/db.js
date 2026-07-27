@@ -1,24 +1,38 @@
 const mongoose = require('mongoose');
 
 /**
- * Connect to MongoDB instance using Mongoose
- * Falls back to mongodb-memory-server if local MongoDB service is not running
+ * Connect to MongoDB Atlas cluster instance using Mongoose
  */
 const connectDB = async () => {
-  const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/chatroom';
-  
+  const uri = process.env.MONGO_URI || 'mongodb://localhost:27017/chat_application';
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Event Listeners
+  mongoose.connection.on('error', (err) => {
+    console.error(`[MongoDB Error] Connection error: ${err.message}`);
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.warn('[MongoDB Warning] Disconnected from MongoDB cluster.');
+  });
+
   try {
-    // Attempt connecting to configured MONGO_URI
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 2000
+      serverSelectionTimeoutMS: 5000
     });
-    console.log(`[MongoDB] Connected successfully: ${conn.connection.host}`);
+    console.log(`[MongoDB Atlas] Connected successfully to host: ${conn.connection.host} (DB: ${conn.connection.name})`);
     return conn;
   } catch (primaryErr) {
-    console.warn(`[MongoDB Warning] Primary connection (${uri}) failed: ${primaryErr.message}`);
-    console.log('[MongoDB] Initializing lightweight in-memory MongoDB server fallback...');
+    console.warn(`[MongoDB Warning] Primary connection to Atlas failed: ${primaryErr.message}`);
 
+    if (isProduction) {
+      console.error('[MongoDB Error] Please verify Atlas Network Access allows 0.0.0.0/0 IP whitelist in MongoDB Cloud dashboard.');
+      return null;
+    }
+
+    // In local dev fallback
     try {
+      console.log('[MongoDB] Initializing lightweight in-memory MongoDB server fallback for dev...');
       const { MongoMemoryServer } = require('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create({
         binary: {

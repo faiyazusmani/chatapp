@@ -10,24 +10,34 @@ import Chat from './pages/Chat';
 export default function App() {
   return (
     <AuthProvider>
-      <div className="app-container">
-        <Navbar />
-        <main style={{ minHeight: 'calc(100vh - 70px)' }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/chat"
-              element={
-                <ProtectedRoute>
-                  <Chat />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        {/* Full-screen Gajim Desktop Messenger route */}
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Standard Website Pages with Top Navbar */}
+        <Route
+          path="/*"
+          element={
+            <div className="app-container">
+              <Navbar />
+              <main style={{ minHeight: 'calc(100vh - 70px)' }}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                </Routes>
+              </main>
+            </div>
+          }
+        />
+      </Routes>
     </AuthProvider>
   );
 }
