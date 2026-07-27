@@ -301,27 +301,6 @@ export default function Sidebar({
               />
             </div>
 
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setActiveTab(activeTab === 'explore' ? 'joined' : 'explore')}
-              title={activeTab === 'explore' ? 'Showing All Rooms' : 'Showing Joined Rooms'}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 6,
-                border: '1px solid #2d3241',
-                background: activeTab === 'joined' ? 'rgba(147, 51, 234, 0.2)' : '#15171e',
-                color: activeTab === 'joined' ? '#a855f7' : '#9ca3af',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 13
-              }}
-            >
-              🎛️
-            </button>
-
             {/* Add Button (+) */}
             <button
               onClick={onOpenCreateModal}

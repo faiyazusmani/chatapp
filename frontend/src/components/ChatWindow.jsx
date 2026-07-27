@@ -481,11 +481,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
           <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 15 }}>
             😃
           </button>
-          {/* Bold */}
-          <button type="button" onClick={() => setInputText((prev) => prev + '**bold**')} title="Bold" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
-            B
-          </button>
-
           {/* Text Input Box */}
           <input
             type="text"
@@ -502,10 +497,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
           {/* Paperclip */}
           <button type="button" onClick={() => fileInputRef.current?.click()} title="Attach File" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
             📎
-          </button>
-          {/* Lock Badge */}
-          <button type="button" title="End-to-End Encrypted" style={{ background: 'transparent', border: 'none', color: '#22c55e', cursor: 'default', fontSize: 14 }}>
-            🔒
           </button>
         </form>
       </div>

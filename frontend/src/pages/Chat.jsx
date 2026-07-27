@@ -181,58 +181,11 @@ export default function Chat() {
               onBack={() => setActiveRoom(null)}
             />
           ) : (
-            /* Explore Rooms Grid View */
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#181a20' }}>
-              <div style={{ marginBottom: 20 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#f3f4f6', margin: '0 0 6px' }}>
-                  {activeTab === 'joined' ? 'Your Joined Rooms' : 'Explore Chat Rooms'}
-                </h2>
-                <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
-                  Select a room from the sidebar or pick one below to start chatting.
-                </p>
-
-                {/* Category Pills */}
-                <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
-                  {['All', 'General', 'Tech', 'Gaming', 'Music', 'Random'].map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      style={{
-                        padding: '5px 12px',
-                        borderRadius: 6,
-                        border: '1px solid #2d3241',
-                        background: selectedCategory === category ? '#9333ea' : '#1f222b',
-                        color: selectedCategory === category ? '#fff' : '#9ca3af',
-                        fontSize: 12,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {displayedRooms.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', background: '#1c1f28', borderRadius: 10, border: '1px border #2d3241' }}>
-                  <h3 style={{ fontSize: 16, color: '#f3f4f6', margin: '0 0 8px' }}>No Chat Rooms Found</h3>
-                  <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
-                    No rooms available in this category yet. Be the first to create one!
-                  </p>
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    style={{ marginTop: 16, padding: '8px 18px', background: '#9333ea', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    + Create Room
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-                  {displayedRooms.map((room) => (
-                    <RoomCard key={room._id || room.id} room={room} onSelectRoom={handleSelectRoom} />
-                  ))}
-                </div>
-              )}
+            /* Gajim Minimal Empty State */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#181a20', color: '#5a6278' }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#8b92a5', margin: '0 0 8px' }}>No chat selected</h3>
+              <p style={{ fontSize: 13, margin: 0 }}>Select a contact or room from the roster to start chatting.</p>
             </div>
           )}
         </main>
