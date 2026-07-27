@@ -7,6 +7,7 @@ import VoiceCallModal from './VoiceCallModal';
 import VideoCallModal from './VideoCallModal';
 import NotificationToast from './NotificationToast';
 import PresenceBadge from './common/PresenceBadge';
+import UserProfileModal from './profile/UserProfileModal';
 
 export default function ChatWindow({ room, onLeaveRoom, onBack }) {
   const { user } = useAuth();
@@ -38,8 +39,10 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
   const [isVideoIncoming, setIsVideoIncoming] = useState(false);
   const [videoCaller, setVideoCaller] = useState(null);
   const [videoOffer, setVideoOffer] = useState(null);
-  // FIX: Store video caller's socket ID for targeted P2P signaling
   const [videoCallerSocketId, setVideoCallerSocketId] = useState(null);
+
+  // Profile Modal State
+  const [targetProfileId, setTargetProfileId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -390,11 +393,13 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
 
             return (
               <div key={msg._id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
-                  <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                    {initials}
-                  </div>
-                </PresenceBadge>
+                <div style={{ cursor: 'pointer' }} onClick={() => setTargetProfileId(msg.sender?._id || msg.sender?.id)}>
+                  <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
+                    <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                      {initials}
+                    </div>
+                  </PresenceBadge>
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>{senderName}</span>
@@ -534,6 +539,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
         callerSocketId={voiceCallerSocketId}
         onCloseCall={() => { setIsVoiceCallOpen(false); setIsVoiceIncoming(false); setVoiceCallerSocketId(null); }}
       />
+      {/* Video Call Modal */}
       <VideoCallModal
         isOpen={isVideoCallOpen}
         roomId={roomId}
@@ -541,9 +547,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
         isIncomingCall={isVideoIncoming}
         incomingCaller={videoCaller}
         incomingOffer={videoOffer}
-        callerSocketId={videoCallerSocketId}
         onCloseCall={() => { setIsVideoCallOpen(false); setIsVideoIncoming(false); setVideoCallerSocketId(null); }}
+        callerSocketId={videoCallerSocketId}
       />
+
+      {/* User Profile Modal */}
+      {targetProfileId && (
+        <UserProfileModal 
+          targetUserId={targetProfileId} 
+          onClose={() => setTargetProfileId(null)} 
+        />
+      )}
     </div>
   );
 }

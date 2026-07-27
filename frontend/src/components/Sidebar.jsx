@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/useAuth';
+import UserProfileModal from './profile/UserProfileModal';
 
 export default function Sidebar({
   activeTab,
@@ -16,6 +17,7 @@ export default function Sidebar({
 }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
   // Derive initial/avatar from name
   const getUserInitials = (name) => {
@@ -190,6 +192,23 @@ export default function Sidebar({
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#e5e7eb', marginBottom: 4 }}>
                   {user?.username}
                 </div>
+                <button
+                  onClick={() => { setShowUserMenu(false); setShowProfile(true); }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#d1d5db',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginBottom: 4
+                  }}
+                >
+                  👤 Profile
+                </button>
                 <button
                   onClick={logout}
                   style={{
@@ -402,6 +421,13 @@ export default function Sidebar({
           )}
         </div>
       </div>
+
+      {showProfile && user && (
+        <UserProfileModal 
+          targetUserId={user._id || user.id} 
+          onClose={() => setShowProfile(false)} 
+        />
+      )}
     </aside>
   );
 }

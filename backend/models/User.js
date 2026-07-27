@@ -38,7 +38,17 @@ const userSchema = new mongoose.Schema(
     lastSeen: {
       type: Date,
       default: Date.now
-    }
+    },
+    // New Profile Fields
+    fullName: { type: String, trim: true, default: '' },
+    bio: { type: String, maxlength: 300, default: '' },
+    phone: { type: String, trim: true, default: '' },
+    location: { type: String, trim: true, default: '' },
+    website: { type: String, trim: true, default: '' },
+    github: { type: String, trim: true, default: '' },
+    linkedin: { type: String, trim: true, default: '' },
+    birthday: { type: Date, default: null },
+    bannerImage: { type: String, default: 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1200&auto=format&fit=crop' }
   },
   {
     timestamps: true

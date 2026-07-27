@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authRoutes = require('./authRoutes');
+const userRoutes = require('./userRoutes');
 const roomRoutes = require('./roomRoutes');
 const messageRoutes = require('./messageRoutes');
 const uploadRoutes = require('./uploadRoutes');
@@ -16,6 +17,9 @@ router.get('/health', (req, res) => {
 
 // Authentication routes
 router.use('/auth', authRoutes);
+
+// User Profile routes
+router.use('/users', userRoutes);
 
 // Room Management routes
 router.use('/rooms', roomRoutes);

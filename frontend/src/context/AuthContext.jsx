@@ -90,6 +90,12 @@ export function AuthProvider({ children }) {
     setError(null);
   };
 
+  // Update local user state instantly
+  const updateLocalUser = (updatedData) => {
+    setUser(updatedData);
+    localStorage.setItem('user', JSON.stringify(updatedData));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -101,6 +107,7 @@ export function AuthProvider({ children }) {
         register,
         login,
         logout,
+        updateLocalUser,
         isAuthenticated: !!user && !!token,
       }}
     >
