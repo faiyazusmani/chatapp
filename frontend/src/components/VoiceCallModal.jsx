@@ -132,6 +132,19 @@ export default function VoiceCallModal({
       const s = pc.iceConnectionState;
       log('iceConnectionState', '→', s);
       setIceStatus(s);
+
+      if (s === 'checking') {
+        window.voiceIceCheckingTimer = setTimeout(() => {
+          if (pc.iceConnectionState === 'checking') {
+            log('iceConnectionState', 'STUCK IN CHECKING for 12s — triggering ICE restart');
+            setPeerStatus('Connection taking too long — retrying...');
+            pc.restartIce();
+          }
+        }, 12000);
+      } else {
+        clearTimeout(window.voiceIceCheckingTimer);
+      }
+
       if (s === 'failed') {
         log('iceConnectionState', 'FAILED — TURN server required or blocked. Triggering ICE restart...');
         setPeerStatus('Connection failed — retrying...');

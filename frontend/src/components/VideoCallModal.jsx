@@ -94,6 +94,19 @@ export default function VideoCallModal({
     pc.oniceconnectionstatechange = () => {
       const s = pc.iceConnectionState;
       log('iceConnectionState', '→', s);
+      
+      if (s === 'checking') {
+        // Set a timer to fail/restart if stuck in checking
+        window.iceCheckingTimer = setTimeout(() => {
+          if (pc.iceConnectionState === 'checking') {
+            log('iceConnectionState', 'STUCK IN CHECKING for 12s — triggering ICE restart');
+            pc.restartIce();
+          }
+        }, 12000);
+      } else {
+        clearTimeout(window.iceCheckingTimer);
+      }
+
       if (s === 'failed') {
         log('iceConnectionState', 'FAILED — triggering ICE restart');
         pc.restartIce();
