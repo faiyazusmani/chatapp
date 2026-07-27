@@ -9,10 +9,10 @@ const ICE_SERVERS = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'turn:a.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:a.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    { urls: 'turn:mt7live.metered.live:80', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
+    { urls: 'turn:mt7live.metered.live:80?transport=tcp', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
+    { urls: 'turn:mt7live.metered.live:443', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
+    { urls: 'turn:mt7live.metered.live:443?transport=tcp', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' }
   ]
 };
 
