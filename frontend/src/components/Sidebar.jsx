@@ -51,34 +51,6 @@ export default function Sidebar({
           gap: 12
         }}
       >
-        {/* Top Gajim Status Buddy Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 18, color: '#22c55e' }}>🟢</span>
-        </div>
-
-        {/* Bell Notification */}
-        <button
-          title="Notifications"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            background: 'transparent',
-            border: 'none',
-            color: '#9ca3af',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 16
-          }}
-        >
-          🔔
-        </button>
-
-        {/* Separator */}
-        <div style={{ width: 28, height: 1, background: '#282c37' }} />
-
         {/* Real Joined Rooms Workspace Icons */}
         <div className="scrollzone" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', width: '100%' }}>
           {recentRooms.map((room) => {

@@ -116,19 +116,7 @@ export default function Chat() {
 
   return (
     <div className="gajim-window">
-      {/* Gajim Titlebar */}
-      <div className="gajim-titlebar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, color: '#22c55e' }}>🟢</span>
-        </div>
-        <div className="gajim-titlebar-title">Gajim</div>
-        <div className="gajim-titlebar-controls">
-          <button className="gajim-titlebar-btn" title="Help">?</button>
-          <button className="gajim-titlebar-btn" title="Minimize">&minus;</button>
-          <button className="gajim-titlebar-btn" title="Maximize">&#9633;</button>
-          <button className="gajim-titlebar-btn" title="Close">&times;</button>
-        </div>
-      </div>
+
 
       {/* Gajim Desktop Main Body */}
       <div className="gajim-body">
@@ -152,21 +140,32 @@ export default function Chat() {
           {toastMessage && (
             <div
               style={{
-                padding: '8px 16px',
-                background: 'rgba(34, 197, 94, 0.15)',
-                borderBottom: '1px solid #22c55e',
-                color: '#4ade80',
-                fontSize: 12,
-                fontWeight: 600,
+                position: 'fixed',
+                bottom: 24,
+                right: 24,
+                zIndex: 9999,
+                padding: '12px 20px',
+                background: '#1c1f28',
+                border: '1px solid #2d3241',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                color: '#f3f4f6',
+                fontSize: 13,
+                fontWeight: 500,
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                gap: '16px',
+                animation: 'msgFadeIn 0.2s ease'
               }}
             >
-              <span>✨ {toastMessage}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>✨</span>
+                <span>{toastMessage}</span>
+              </div>
               <button
                 onClick={() => setToastMessage('')}
-                style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+                style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16 }}
               >
                 &times;
               </button>
