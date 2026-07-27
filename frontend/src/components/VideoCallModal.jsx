@@ -11,23 +11,23 @@ const ICE_SERVERS = {
     },
     {
       urls: "turn:global.relay.metered.ca:80",
-      username: "2126cc0cb07a8db93032573f",
-      credential: "49sQ7pN1CfrpsUse",
+      username: import.meta.env.VITE_TURN_USERNAME,
+      credential: import.meta.env.VITE_TURN_CREDENTIAL,
     },
     {
       urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: "2126cc0cb07a8db93032573f",
-      credential: "49sQ7pN1CfrpsUse",
+      username: import.meta.env.VITE_TURN_USERNAME,
+      credential: import.meta.env.VITE_TURN_CREDENTIAL,
     },
     {
       urls: "turn:global.relay.metered.ca:443",
-      username: "2126cc0cb07a8db93032573f",
-      credential: "49sQ7pN1CfrpsUse",
+      username: import.meta.env.VITE_TURN_USERNAME,
+      credential: import.meta.env.VITE_TURN_CREDENTIAL,
     },
     {
       urls: "turns:global.relay.metered.ca:443?transport=tcp",
-      username: "2126cc0cb07a8db93032573f",
-      credential: "49sQ7pN1CfrpsUse",
+      username: import.meta.env.VITE_TURN_USERNAME,
+      credential: import.meta.env.VITE_TURN_CREDENTIAL,
     },
   ],
 };
