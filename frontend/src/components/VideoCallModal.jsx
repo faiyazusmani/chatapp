@@ -420,8 +420,11 @@ export default function VideoCallModal({
       targetSocketIdRef.current = fromSocket;
     };
 
-    const handleVideoCallAnswered = async ({ answer }) => {
+    const handleVideoCallAnswered = async ({ answer, fromSocket }) => {
       const pc = peerConnectionRef.current;
+      if (fromSocket) {
+        targetSocketIdRef.current = fromSocket;
+      }
 
       // ─────────────────────────────────────────────────────────────────
       // EVENT: Answer Received

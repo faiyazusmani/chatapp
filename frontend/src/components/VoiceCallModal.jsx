@@ -386,8 +386,11 @@ export default function VoiceCallModal({
     }
 
     // WebRTC Signaling Socket Events
-    const handleCallAnswered = async ({ answer }) => {
+    const handleCallAnswered = async ({ answer, fromSocket }) => {
       const pc = peerConnectionRef.current;
+      if (fromSocket) {
+        targetSocketIdRef.current = fromSocket;
+      }
 
       // ─────────────────────────────────────────────────────────────────
       // EVENT: Answer Received

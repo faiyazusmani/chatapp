@@ -208,9 +208,9 @@ const initSocket = (server) => {
     socket.on('answer_call', ({ toSocketId, toRoom, answer }) => {
       console.log(`[WebRTC Voice] Answer from ${socket.id} → ${toSocketId || toRoom}`);
       if (toSocketId) {
-        socket.to(toSocketId).emit('call_answered', { answer });
+        socket.to(toSocketId).emit('call_answered', { answer, fromSocket: socket.id });
       } else {
-        socket.to(toRoom).emit('call_answered', { answer });
+        socket.to(toRoom).emit('call_answered', { answer, fromSocket: socket.id });
       }
     });
 
@@ -248,9 +248,9 @@ const initSocket = (server) => {
     socket.on('video_call_answer', ({ toSocketId, toRoom, answer }) => {
       console.log(`[WebRTC Video] Video answer from ${socket.id} → ${toSocketId || toRoom}`);
       if (toSocketId) {
-        socket.to(toSocketId).emit('video_call_answered', { answer });
+        socket.to(toSocketId).emit('video_call_answered', { answer, fromSocket: socket.id });
       } else {
-        socket.to(toRoom).emit('video_call_answered', { answer });
+        socket.to(toRoom).emit('video_call_answered', { answer, fromSocket: socket.id });
       }
     });
 
