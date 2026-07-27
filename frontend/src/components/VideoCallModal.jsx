@@ -57,9 +57,9 @@ export default function VideoCallModal({
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         // ─────────────────────────────────────────────────────────────────
-        // EVENT: ICE Candidate Sent
+        // EVENT: ICE Candidate Emitted
         // ─────────────────────────────────────────────────────────────────
-        console.group('%c[Video] 📤 ICE Candidate Sent', 'color:#f59e0b;font-weight:bold');
+        console.group('%c[Socket] 📤 ICE Candidate Emitted', 'color:#f59e0b;font-weight:bold');
         console.log('  type      :', event.candidate.type);
         console.log('  protocol  :', event.candidate.protocol);
         console.log('  address   :', event.candidate.address);
@@ -68,7 +68,7 @@ export default function VideoCallModal({
         console.groupEnd();
         socket.emit('ice_candidate', { toRoom: roomId, toSocketId: targetSocketIdRef.current, candidate: event.candidate });
       } else {
-        log('ICE Candidate Sent', 'All local candidates gathered (null candidate)');
+        log('ICE Candidate Emitted', 'All local candidates gathered (null candidate)');
       }
     };
 
@@ -202,8 +202,16 @@ export default function VideoCallModal({
       console.groupEnd();
 
       await pc.setLocalDescription(offer);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Emitted
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Socket] 📤 Offer Emitted', 'color:#14b8a6;font-weight:bold');
+      console.log('  to room      :', roomId);
+      console.log('  to socketId  :', 'null (broadcast)');
+      console.groupEnd();
+
       socket.emit('video_call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
-      log('Offer Created', 'Video offer emitted to room:', roomId);
     } catch (err) {
       console.error('[WebRTC Error] Could not access camera/microphone:', err);
       setPeerStatus('Camera/Microphone permission denied');
@@ -254,8 +262,17 @@ export default function VideoCallModal({
       console.groupEnd();
 
       await pc.setLocalDescription(answer);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Emitted
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Socket] 📤 Answer Emitted', 'color:#14b8a6;font-weight:bold');
+      console.log('  to room      :', roomId);
+      console.log('  to socketId  :', targetSocketIdRef.current);
+      console.groupEnd();
+
       socket.emit('video_call_answer', { toRoom: roomId, toSocketId: targetSocketIdRef.current, answer });
-      log('Answer Created', 'Answer sent to socket:', targetSocketIdRef.current);
+
       setCallState('connected');
       setPeerStatus('Video Call Active');
     } catch (err) {

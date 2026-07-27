@@ -113,12 +113,22 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
     };
 
     const handleUserJoined = ({ user: joinedUser }) => {
+      console.group('%c[Socket] 🟢 User Joined', 'color:#10b981;font-weight:bold');
+      console.log('  username:', joinedUser?.username);
+      console.log('  room:', room.name);
+      console.groupEnd();
+
       if (joinedUser?.username && joinedUser.username !== user?.username) {
         addNotification('User Joined', `${joinedUser.username} joined #${room.name}`, 'join');
       }
     };
 
     const handleUserLeft = ({ user: leftUser }) => {
+      console.group('%c[Socket] 🔴 User Left', 'color:#ef4444;font-weight:bold');
+      console.log('  username:', leftUser?.username);
+      console.log('  room:', room.name);
+      console.groupEnd();
+
       if (leftUser?.username && leftUser.username !== user?.username) {
         addNotification('User Left', `${leftUser.username} left the room`, 'leave');
       }

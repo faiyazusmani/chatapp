@@ -89,9 +89,9 @@ export default function VoiceCallModal({
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         // ─────────────────────────────────────────────────────────────────
-        // EVENT: ICE Candidate Sent
+        // EVENT: ICE Candidate Emitted
         // ─────────────────────────────────────────────────────────────────
-        console.group('%c[Voice] 📤 ICE Candidate Sent', 'color:#f59e0b;font-weight:bold');
+        console.group('%c[Socket] 📤 ICE Candidate Emitted', 'color:#f59e0b;font-weight:bold');
         console.log('  type      :', event.candidate.type);
         console.log('  protocol  :', event.candidate.protocol);
         console.log('  address   :', event.candidate.address);
@@ -104,7 +104,7 @@ export default function VoiceCallModal({
           candidate: event.candidate
         });
       } else {
-        log('ICE Candidate Sent', 'All local ICE candidates gathered (null candidate)');
+        log('ICE Candidate Emitted', 'All local ICE candidates gathered (null candidate)');
       }
     };
 
@@ -246,8 +246,16 @@ export default function VoiceCallModal({
       console.groupEnd();
 
       await pc.setLocalDescription(offer);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Offer Emitted
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Socket] 📤 Offer Emitted', 'color:#14b8a6;font-weight:bold');
+      console.log('  to room      :', roomId);
+      console.log('  to socketId  :', 'null (broadcast)');
+      console.groupEnd();
+
       socket.emit('call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
-      log('Offer Created', 'Offer emitted via socket to room:', roomId);
     } catch (err) {
       log('Error', 'getUserMedia failed:', err.message);
       setPeerStatus('Microphone permission denied');
@@ -294,8 +302,16 @@ export default function VoiceCallModal({
       console.groupEnd();
 
       await pc.setLocalDescription(answer);
+
+      // ─────────────────────────────────────────────────────────────────
+      // EVENT: Answer Emitted
+      // ─────────────────────────────────────────────────────────────────
+      console.group('%c[Socket] 📤 Answer Emitted', 'color:#14b8a6;font-weight:bold');
+      console.log('  to room      :', roomId);
+      console.log('  to socketId  :', targetSocketIdRef.current);
+      console.groupEnd();
+
       socket.emit('answer_call', { toRoom: roomId, toSocketId: targetSocketIdRef.current, answer });
-      log('Answer Created', 'Answer sent to socket:', targetSocketIdRef.current);
 
       setCallState('connected');
       setPeerStatus('Connected (Active Call)');
