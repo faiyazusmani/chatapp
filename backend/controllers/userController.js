@@ -41,6 +41,14 @@ const updateProfile = async (req, res, next) => {
     const user = await User.findById(userId);
 
     if (user) {
+      if (req.body.username && req.body.username !== user.username) {
+        const usernameExists = await User.findOne({ username: req.body.username });
+        if (usernameExists) {
+          return res.status(400).json({ message: 'Username is already taken' });
+        }
+        user.username = req.body.username;
+      }
+
       user.fullName = req.body.fullName !== undefined ? req.body.fullName : user.fullName;
       user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
       user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;

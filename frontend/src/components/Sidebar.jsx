@@ -159,7 +159,11 @@ export default function Sidebar({
                 justifyContent: 'center'
               }}
             >
-              {getUserInitials(user?.username || 'Chatter')}
+              {user?.avatar ? (
+                <img src={user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              ) : (
+                getUserInitials(user?.username || 'Chatter')
+              )}
               <span
                 style={{
                   position: 'absolute',

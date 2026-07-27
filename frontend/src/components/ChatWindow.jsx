@@ -395,8 +395,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
               <div key={msg._id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <div style={{ cursor: 'pointer' }} onClick={() => setTargetProfileId(msg.sender?._id || msg.sender?.id)}>
                   <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
-                    <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                      {initials}
+                    <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                      {msg.sender?.avatar ? (
+                        <img src={msg.sender.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        initials
+                      )}
                     </div>
                   </PresenceBadge>
                 </div>

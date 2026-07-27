@@ -183,9 +183,15 @@ export default function UserProfileModal({ targetUserId, onClose }) {
         <div style={{ padding: '10px 20px 20px 20px' }}>
           {isEditing ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 15, marginTop: 10 }}>
-              <div>
-                <label style={labelStyle}>Full Name</label>
-                <input type="text" name="fullName" value={editForm.fullName || ''} onChange={handleEditChange} style={inputStyle} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Username</label>
+                  <input type="text" name="username" value={editForm.username || ''} onChange={handleEditChange} style={inputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input type="text" name="fullName" value={editForm.fullName || ''} onChange={handleEditChange} style={inputStyle} />
+                </div>
               </div>
               <div>
                 <label style={labelStyle}>Bio</label>
