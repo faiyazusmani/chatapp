@@ -99,40 +99,60 @@ export default function VoiceCallModal({
       }
     };
 
-    // ICE Connection State Changes — critical for cross-network diagnosis
+    // ── 1. connectionState ────────────────────────────────────────────────
+    // Reflects overall P2P connection health
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      log('connectionState', '→', s);
+      if (s === 'connected') {
+        setCallState('connected');
+        setPeerStatus('Connected (Active Call)');
+        setIceStatus('connected');
+      } else if (s === 'failed') {
+        log('connectionState', 'FAILED — media cannot flow. TURN relay may be blocked.');
+        setPeerStatus('Call failed — no TURN relay available');
+        handleEndCall();
+      } else if (s === 'disconnected') {
+        setPeerStatus('Connection lost...');
+      }
+    };
+
+    // ── 2. iceConnectionState ────────────────────────────────────────────
+    // Tracks ICE (NAT traversal) connectivity check progress
     pc.oniceconnectionstatechange = () => {
-      log('ICE', 'iceConnectionState →', pc.iceConnectionState);
-      setIceStatus(pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
-        log('ICE', 'ICE FAILED — TURN server likely needed or blocked. Triggering ICE restart...');
+      const s = pc.iceConnectionState;
+      log('iceConnectionState', '→', s);
+      setIceStatus(s);
+      if (s === 'failed') {
+        log('iceConnectionState', 'FAILED — TURN server required or blocked. Triggering ICE restart...');
         setPeerStatus('Connection failed — retrying...');
-        // ICE restart: renegotiate new candidates
         pc.restartIce();
       }
-      if (pc.iceConnectionState === 'disconnected') {
+      if (s === 'disconnected') {
         setPeerStatus('Connection interrupted...');
       }
     };
 
-    // Signaling State Changes
-    pc.onsignalingstatechange = () => {
-      log('Signaling', 'signalingState →', pc.signalingState);
+    // ── 3. iceGatheringState ─────────────────────────────────────────────
+    // Tracks progress of local ICE candidate collection
+    // new → gathering → complete
+    pc.onicegatheringstatechange = () => {
+      const s = pc.iceGatheringState;
+      log('iceGatheringState', '→', s);
+      // 'complete' means all local candidates (host, srflx, relay) have been gathered
+      // If only host candidates are gathered and no relay, cross-network will fail
+      if (s === 'complete') {
+        const stats = pc.iceGatheringState;
+        log('iceGatheringState', 'Gathering complete. All local ICE candidates sent.', stats);
+      }
     };
 
-    // Connection State Changes
-    pc.onconnectionstatechange = () => {
-      log('Connection', 'connectionState →', pc.connectionState);
-      if (pc.connectionState === 'connected') {
-        setCallState('connected');
-        setPeerStatus('Connected (Active Call)');
-        setIceStatus('connected');
-      } else if (pc.connectionState === 'failed') {
-        log('Connection', 'FAILED — media cannot flow. Check TURN server configuration.');
-        setPeerStatus('Call failed — no TURN relay available');
-        handleEndCall();
-      } else if (pc.connectionState === 'disconnected') {
-        setPeerStatus('Connection lost...');
-      }
+    // ── 4. signalingState ────────────────────────────────────────────────
+    // Tracks SDP offer/answer negotiation state machine
+    // stable → have-local-offer → have-remote-offer → stable
+    pc.onsignalingstatechange = () => {
+      const s = pc.signalingState;
+      log('signalingState', '→', s);
     };
 
     // Remote Audio Track Received

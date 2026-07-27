@@ -63,38 +63,60 @@ export default function VideoCallModal({
       }
     };
 
-    // ICE Connection State — key for cross-network diagnosis
+    // ── 1. connectionState ────────────────────────────────────────────────
+    // Reflects overall P2P connection health
+    pc.onconnectionstatechange = () => {
+      const s = pc.connectionState;
+      log('connectionState', '→', s);
+      if (s === 'connected') {
+        setCallState('connected');
+        setPeerStatus('Video Call Active');
+      } else if (s === 'failed') {
+        log('connectionState', 'FAILED — check TURN server');
+        setPeerStatus('Call failed — no relay available');
+        handleEndCall();
+      } else if (s === 'disconnected') {
+        setPeerStatus('Connection interrupted...');
+      }
+    };
+
+    // ── 2. iceConnectionState ────────────────────────────────────────────
+    // Tracks ICE (NAT traversal) connectivity check progress
     pc.oniceconnectionstatechange = () => {
-      log('ICE', 'iceConnectionState →', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
-        log('ICE', 'FAILED — triggering ICE restart');
+      const s = pc.iceConnectionState;
+      log('iceConnectionState', '→', s);
+      if (s === 'failed') {
+        log('iceConnectionState', 'FAILED — triggering ICE restart');
         pc.restartIce();
       }
     };
 
-    pc.onsignalingstatechange = () => log('Signaling', 'signalingState →', pc.signalingState);
-
-    // Remote Video Track Received
-    pc.ontrack = (event) => {
-      log('Track', 'Remote track received:', event.track.kind);
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        remoteVideoRef.current.play().catch(e => log('Video', 'Autoplay blocked:', e.message));
+    // ── 3. iceGatheringState ─────────────────────────────────────────────
+    // Tracks progress of local ICE candidate collection
+    // new → gathering → complete
+    pc.onicegatheringstatechange = () => {
+      const s = pc.iceGatheringState;
+      log('iceGatheringState', '→', s);
+      if (s === 'complete') {
+        log('iceGatheringState', 'Gathering complete. All local ICE candidates sent.');
       }
     };
 
-    // Connection State Monitor
-    pc.onconnectionstatechange = () => {
-      log('Connection', 'connectionState →', pc.connectionState);
-      if (pc.connectionState === 'connected') {
-        setCallState('connected');
-        setPeerStatus('Video Call Active');
-      } else if (pc.connectionState === 'failed') {
-        log('Connection', 'FAILED — check TURN server');
-        setPeerStatus('Call failed — no relay available');
-        handleEndCall();
-      } else if (pc.connectionState === 'disconnected') {
-        setPeerStatus('Connection interrupted...');
+    // ── 4. signalingState ────────────────────────────────────────────────
+    // Tracks SDP offer/answer negotiation state machine
+    // stable → have-local-offer → have-remote-offer → stable
+    pc.onsignalingstatechange = () => {
+      const s = pc.signalingState;
+      log('signalingState', '→', s);
+    };
+
+    // Remote Video Track Received
+    pc.ontrack = (event) => {
+      log('Track', 'Remote track received:', event.track.kind, '| streams:', event.streams.length);
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        // Explicitly call play() to bypass browser autoplay policy
+        remoteVideoRef.current.play().catch(e => log('Track', 'Autoplay blocked:', e.message));
       }
     };
 
