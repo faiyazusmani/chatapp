@@ -168,6 +168,7 @@ export default function VideoCallModal({
     };
 
     peerConnectionRef.current = pc;
+    window.pc = pc; // Exposed for debugging
     return pc;
   };
 

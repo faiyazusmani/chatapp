@@ -214,6 +214,7 @@ export default function VoiceCallModal({
     };
 
     peerConnectionRef.current = pc;
+    window.pc = pc; // Exposed for debugging
     return pc;
   };
 
