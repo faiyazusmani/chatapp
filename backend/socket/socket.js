@@ -90,7 +90,6 @@ const initSocket = (server) => {
               populate: { path: 'sender', select: 'username' }
             });
         } else {
-          // In-memory fallback
           const msgId = 'mem_msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
           let replyObj = null;
 
@@ -190,20 +189,38 @@ const initSocket = (server) => {
 
     // =========================================================================
     // WebRTC Voice Calling Signaling Events
+    // FIX: All P2P signaling events now route to a specific target socket ID
+    // instead of broadcasting to the entire room. This prevents SDP/ICE
+    // messages from corrupting unrelated peer connections in multi-user rooms.
     // =========================================================================
 
-    socket.on('call_user', ({ toRoom, offer, caller }) => {
-      console.log(`[WebRTC Voice] Call initiated in room ${toRoom} by ${caller?.username}`);
-      socket.to(toRoom).emit('call_incoming', { offer, caller, fromSocket: socket.id });
+    socket.on('call_user', ({ toRoom, toSocketId, offer, caller }) => {
+      console.log(`[WebRTC Voice] Call from ${caller?.username} (${socket.id}) → room ${toRoom}`);
+      if (toSocketId) {
+        // Direct peer-to-peer signaling to a specific socket
+        socket.to(toSocketId).emit('call_incoming', { offer, caller, fromSocket: socket.id });
+      } else {
+        // Fallback: broadcast to room (2-person rooms only)
+        socket.to(toRoom).emit('call_incoming', { offer, caller, fromSocket: socket.id });
+      }
     });
 
-    socket.on('answer_call', ({ toRoom, answer }) => {
-      console.log(`[WebRTC Voice] Call answered in room ${toRoom}`);
-      socket.to(toRoom).emit('call_answered', { answer });
+    socket.on('answer_call', ({ toSocketId, toRoom, answer }) => {
+      console.log(`[WebRTC Voice] Answer from ${socket.id} → ${toSocketId || toRoom}`);
+      if (toSocketId) {
+        socket.to(toSocketId).emit('call_answered', { answer });
+      } else {
+        socket.to(toRoom).emit('call_answered', { answer });
+      }
     });
 
-    socket.on('ice_candidate', ({ toRoom, candidate }) => {
-      socket.to(toRoom).emit('ice_candidate', { candidate });
+    socket.on('ice_candidate', ({ toSocketId, toRoom, candidate }) => {
+      if (toSocketId) {
+        // FIX: Route ICE candidate directly to the specific peer socket
+        socket.to(toSocketId).emit('ice_candidate', { candidate });
+      } else {
+        socket.to(toRoom).emit('ice_candidate', { candidate });
+      }
     });
 
     socket.on('toggle_audio', ({ toRoom, muted, username }) => {
@@ -211,7 +228,7 @@ const initSocket = (server) => {
     });
 
     socket.on('end_call', ({ toRoom }) => {
-      console.log(`[WebRTC Voice] Call ended in room ${toRoom}`);
+      console.log(`[WebRTC Voice] Call ended in room ${toRoom} by ${socket.id}`);
       socket.to(toRoom).emit('call_ended');
     });
 
@@ -219,14 +236,22 @@ const initSocket = (server) => {
     // WebRTC Video Calling & Screen Sharing Signaling Events
     // =========================================================================
 
-    socket.on('video_call_user', ({ toRoom, offer, caller }) => {
-      console.log(`[WebRTC Video] Video call initiated in room ${toRoom} by ${caller?.username}`);
-      socket.to(toRoom).emit('video_call_incoming', { offer, caller, fromSocket: socket.id });
+    socket.on('video_call_user', ({ toRoom, toSocketId, offer, caller }) => {
+      console.log(`[WebRTC Video] Video call from ${caller?.username} (${socket.id}) → room ${toRoom}`);
+      if (toSocketId) {
+        socket.to(toSocketId).emit('video_call_incoming', { offer, caller, fromSocket: socket.id });
+      } else {
+        socket.to(toRoom).emit('video_call_incoming', { offer, caller, fromSocket: socket.id });
+      }
     });
 
-    socket.on('video_call_answer', ({ toRoom, answer }) => {
-      console.log(`[WebRTC Video] Video call answered in room ${toRoom}`);
-      socket.to(toRoom).emit('video_call_answered', { answer });
+    socket.on('video_call_answer', ({ toSocketId, toRoom, answer }) => {
+      console.log(`[WebRTC Video] Video answer from ${socket.id} → ${toSocketId || toRoom}`);
+      if (toSocketId) {
+        socket.to(toSocketId).emit('video_call_answered', { answer });
+      } else {
+        socket.to(toRoom).emit('video_call_answered', { answer });
+      }
     });
 
     socket.on('toggle_camera', ({ toRoom, cameraOff, username }) => {
@@ -251,6 +276,9 @@ const initSocket = (server) => {
     // Disconnect Cleanup Handling
     socket.on('disconnect', () => {
       if (socket.roomId && socket.user) {
+        // Notify peers if this user was in an active call
+        socket.to(socket.roomId).emit('call_ended');
+        socket.to(socket.roomId).emit('video_call_ended');
         socket.to(socket.roomId).emit('user_left', { user: socket.user, roomId: socket.roomId });
         socket.to(socket.roomId).emit('user_stop_typing', { username: socket.user.username, roomId: socket.roomId });
       }

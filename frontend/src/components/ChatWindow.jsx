@@ -29,12 +29,16 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
   const [isVoiceIncoming, setIsVoiceIncoming] = useState(false);
   const [voiceCaller, setVoiceCaller] = useState(null);
   const [voiceOffer, setVoiceOffer] = useState(null);
+  // FIX: Store caller's socket ID so ICE/answer routes directly to them (not room-broadcast)
+  const [voiceCallerSocketId, setVoiceCallerSocketId] = useState(null);
 
   // Video Calling & Screen Sharing State
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [isVideoIncoming, setIsVideoIncoming] = useState(false);
   const [videoCaller, setVideoCaller] = useState(null);
   const [videoOffer, setVideoOffer] = useState(null);
+  // FIX: Store video caller's socket ID for targeted P2P signaling
+  const [videoCallerSocketId, setVideoCallerSocketId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -135,18 +139,26 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
     };
 
     // Incoming Voice Call Socket Event
-    const handleCallIncoming = ({ offer, caller }) => {
+    // FIX: Extract fromSocket and store it — this is the caller's socket ID
+    // that we must use to route our SDP answer and ICE candidates directly
+    // back to them instead of broadcasting to the whole room.
+    const handleCallIncoming = ({ offer, caller, fromSocket }) => {
+      console.log('[Voice] Incoming call from socket:', fromSocket, 'user:', caller?.username);
       setVoiceOffer(offer);
       setVoiceCaller(caller);
+      setVoiceCallerSocketId(fromSocket || null);  // <-- KEY FIX
       setIsVoiceIncoming(true);
       setIsVoiceCallOpen(true);
       addNotification('Incoming Voice Call', `${caller?.username || 'Member'} is calling...`, 'voice_call');
     };
 
     // Incoming Video Call Socket Event
-    const handleVideoCallIncoming = ({ offer, caller }) => {
+    // FIX: Same fix for video — extract fromSocket for targeted signaling.
+    const handleVideoCallIncoming = ({ offer, caller, fromSocket }) => {
+      console.log('[Video] Incoming call from socket:', fromSocket, 'user:', caller?.username);
       setVideoOffer(offer);
       setVideoCaller(caller);
+      setVideoCallerSocketId(fromSocket || null);  // <-- KEY FIX
       setIsVideoIncoming(true);
       setIsVideoCallOpen(true);
       addNotification('Incoming Video Call', `${caller?.username || 'Member'} initiated a video call...`, 'video_call');
@@ -507,8 +519,27 @@ export default function ChatWindow({ room, onLeaveRoom, onBack }) {
       )}
 
       {/* Voice & Video Call Modals */}
-      <VoiceCallModal isOpen={isVoiceCallOpen} roomId={roomId} roomName={room.name} isIncomingCall={isVoiceIncoming} incomingCaller={voiceCaller} incomingOffer={voiceOffer} onCloseCall={() => { setIsVoiceCallOpen(false); setIsVoiceIncoming(false); }} />
-      <VideoCallModal isOpen={isVideoCallOpen} roomId={roomId} roomName={room.name} isIncomingCall={isVideoIncoming} incomingCaller={videoCaller} incomingOffer={videoOffer} onCloseCall={() => { setIsVideoCallOpen(false); setIsVideoIncoming(false); }} />
+      {/* FIX: Pass callerSocketId so modal routes answer/ICE directly to caller socket */}
+      <VoiceCallModal
+        isOpen={isVoiceCallOpen}
+        roomId={roomId}
+        roomName={room.name}
+        isIncomingCall={isVoiceIncoming}
+        incomingCaller={voiceCaller}
+        incomingOffer={voiceOffer}
+        callerSocketId={voiceCallerSocketId}
+        onCloseCall={() => { setIsVoiceCallOpen(false); setIsVoiceIncoming(false); setVoiceCallerSocketId(null); }}
+      />
+      <VideoCallModal
+        isOpen={isVideoCallOpen}
+        roomId={roomId}
+        roomName={room.name}
+        isIncomingCall={isVideoIncoming}
+        incomingCaller={videoCaller}
+        incomingOffer={videoOffer}
+        callerSocketId={videoCallerSocketId}
+        onCloseCall={() => { setIsVideoCallOpen(false); setIsVideoIncoming(false); setVideoCallerSocketId(null); }}
+      />
     </div>
   );
 }

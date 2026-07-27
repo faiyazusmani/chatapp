@@ -3,11 +3,16 @@ import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 
+// STUN discovers public IP; TURN relays media when STUN fails (symmetric NAT, cellular, firewalls)
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'turn:a.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:a.relay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:a.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
   ]
 };
 
@@ -38,32 +43,58 @@ export default function VideoCallModal({
   const screenStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
+  // Store target peer socket ID for direct signaling (not room-broadcast)
+  const targetSocketIdRef = useRef(null);
+
+  const log = (tag, ...args) => console.log(`[Video ${tag}]`, ...args);
 
   // Create & initialize WebRTC peer connection
   const createPeerConnection = () => {
+    log('PC', 'Creating RTCPeerConnection with STUN+TURN ICE servers');
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // ICE Candidate Generation Event
+    // ICE Candidate — route to specific peer socket, not whole room
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit('ice_candidate', { toRoom: roomId, candidate: event.candidate });
+        log('ICE', 'Sending candidate to', targetSocketIdRef.current || 'room', event.candidate.type);
+        socket.emit('ice_candidate', { toRoom: roomId, toSocketId: targetSocketIdRef.current, candidate: event.candidate });
+      } else {
+        log('ICE', 'All candidates gathered');
       }
     };
 
+    // ICE Connection State — key for cross-network diagnosis
+    pc.oniceconnectionstatechange = () => {
+      log('ICE', 'iceConnectionState →', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed') {
+        log('ICE', 'FAILED — triggering ICE restart');
+        pc.restartIce();
+      }
+    };
+
+    pc.onsignalingstatechange = () => log('Signaling', 'signalingState →', pc.signalingState);
+
     // Remote Video Track Received
     pc.ontrack = (event) => {
+      log('Track', 'Remote track received:', event.track.kind);
       if (remoteVideoRef.current && event.streams[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
+        remoteVideoRef.current.play().catch(e => log('Video', 'Autoplay blocked:', e.message));
       }
     };
 
     // Connection State Monitor
     pc.onconnectionstatechange = () => {
+      log('Connection', 'connectionState →', pc.connectionState);
       if (pc.connectionState === 'connected') {
         setCallState('connected');
         setPeerStatus('Video Call Active');
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      } else if (pc.connectionState === 'failed') {
+        log('Connection', 'FAILED — check TURN server');
+        setPeerStatus('Call failed — no relay available');
         handleEndCall();
+      } else if (pc.connectionState === 'disconnected') {
+        setPeerStatus('Connection interrupted...');
       }
     };
 
@@ -89,7 +120,9 @@ export default function VideoCallModal({
       setCallState('calling');
       setPeerStatus('Initiating video call...');
 
+      log('Call', 'Requesting camera + microphone via getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      log('Call', 'Media granted. Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       localStreamRef.current = stream;
 
       if (localVideoRef.current) {
@@ -97,12 +130,18 @@ export default function VideoCallModal({
       }
 
       const pc = createPeerConnection();
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      stream.getTracks().forEach((track) => {
+        log('Call', 'Adding local track:', track.kind);
+        pc.addTrack(track, stream);
+      });
 
       const offer = await pc.createOffer();
+      log('Offer', 'Created SDP offer:', offer.type);
       await pc.setLocalDescription(offer);
+      log('Offer', 'Local description set. signalingState:', pc.signalingState);
 
-      socket.emit('video_call_user', { toRoom: roomId, offer, caller: user });
+      socket.emit('video_call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
+      log('Offer', 'Video offer emitted to room:', roomId);
     } catch (err) {
       console.error('[WebRTC Error] Could not access camera/microphone:', err);
       setPeerStatus('Camera/Microphone permission denied');
@@ -115,7 +154,9 @@ export default function VideoCallModal({
       setCallState('connecting');
       setPeerStatus('Connecting video feed...');
 
+      log('Accept', 'Accepting video call from socket:', targetSocketIdRef.current);
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      log('Accept', 'Media granted. Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       localStreamRef.current = stream;
 
       if (localVideoRef.current) {
@@ -123,15 +164,24 @@ export default function VideoCallModal({
       }
 
       const pc = createPeerConnection();
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      stream.getTracks().forEach((track) => {
+        log('Accept', 'Adding local track:', track.kind);
+        pc.addTrack(track, stream);
+      });
 
+      log('Answer', 'Setting remote description (incoming offer)...');
       await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+      log('Answer', 'Remote desc set. signalingState:', pc.signalingState);
       await processQueuedIceCandidates(pc);
 
       const answer = await pc.createAnswer();
+      log('Answer', 'Created answer:', answer.type);
       await pc.setLocalDescription(answer);
+      log('Answer', 'Local desc set. signalingState:', pc.signalingState);
 
-      socket.emit('video_call_answer', { toRoom: roomId, answer });
+      // Route answer to specific caller socket
+      socket.emit('video_call_answer', { toRoom: roomId, toSocketId: targetSocketIdRef.current, answer });
+      log('Answer', 'Answer emitted to socket:', targetSocketIdRef.current);
       setCallState('connected');
       setPeerStatus('Video Call Active');
     } catch (err) {
@@ -249,9 +299,11 @@ export default function VideoCallModal({
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
+      log('End', 'RTCPeerConnection closed');
     }
 
     iceCandidateQueueRef.current = [];
+    targetSocketIdRef.current = null;
     socket.emit('end_video_call', { toRoom: roomId });
     setCallState('idle');
     setIsCameraOff(false);
@@ -272,10 +324,17 @@ export default function VideoCallModal({
     }
 
     // Signaling socket event listeners
+    const handleVideoCallIncoming = ({ offer, caller, fromSocket }) => {
+      log('Incoming', 'Video call from socket:', fromSocket, 'user:', caller?.username);
+      targetSocketIdRef.current = fromSocket;
+    };
+
     const handleVideoCallAnswered = async ({ answer }) => {
       const pc = peerConnectionRef.current;
+      log('Answer', 'Received video answer. signalingState:', pc?.signalingState);
       if (pc && pc.signalingState !== 'stable') {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        log('Answer', 'Remote desc set from answer. signalingState:', pc.signalingState);
         await processQueuedIceCandidates(pc);
         setCallState('connected');
         setPeerStatus('Video Call Active');
@@ -284,13 +343,16 @@ export default function VideoCallModal({
 
     const handleIceCandidate = async ({ candidate }) => {
       const pc = peerConnectionRef.current;
+      log('ICE', 'Received ICE candidate:', candidate?.type, candidate?.protocol);
       if (pc && pc.remoteDescription && pc.remoteDescription.type) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          log('ICE', 'Candidate added successfully');
         } catch (err) {
-          console.error('[WebRTC Error] Failed to add ICE candidate:', err);
+          log('ICE', 'Failed to add candidate:', err.message);
         }
       } else {
+        log('ICE', 'Queuing candidate (no remote desc yet)');
         iceCandidateQueueRef.current.push(candidate);
       }
     };
@@ -307,6 +369,7 @@ export default function VideoCallModal({
       handleEndCall();
     };
 
+    socket.on('video_call_incoming', handleVideoCallIncoming);
     socket.on('video_call_answered', handleVideoCallAnswered);
     socket.on('ice_candidate', handleIceCandidate);
     socket.on('screen_share_started', handleScreenShareStarted);
@@ -314,6 +377,7 @@ export default function VideoCallModal({
     socket.on('video_call_ended', handleVideoCallEnded);
 
     return () => {
+      socket.off('video_call_incoming', handleVideoCallIncoming);
       socket.off('video_call_answered', handleVideoCallAnswered);
       socket.off('ice_candidate', handleIceCandidate);
       socket.off('screen_share_started', handleScreenShareStarted);
