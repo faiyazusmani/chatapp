@@ -6,14 +6,30 @@ import { useAuth } from '../context/useAuth';
 // STUN discovers public IP; TURN relays media when STUN fails (symmetric NAT, cellular, firewalls)
 const ICE_SERVERS = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'turn:mt7live.metered.live:80', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
-    { urls: 'turn:mt7live.metered.live:80?transport=tcp', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
-    { urls: 'turn:mt7live.metered.live:443', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' },
-    { urls: 'turn:mt7live.metered.live:443?transport=tcp', username: 'mt7live', credential: '6a6746fc72d664f3ce0e0448' }
-  ]
+    {
+      urls: "stun:stun.relay.metered.ca:80",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:80",
+      username: "2126cc0cb07a8db93032573f",
+      credential: "49sQ7pN1CfrpsUse",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:80?transport=tcp",
+      username: "2126cc0cb07a8db93032573f",
+      credential: "49sQ7pN1CfrpsUse",
+    },
+    {
+      urls: "turn:global.relay.metered.ca:443",
+      username: "2126cc0cb07a8db93032573f",
+      credential: "49sQ7pN1CfrpsUse",
+    },
+    {
+      urls: "turns:global.relay.metered.ca:443?transport=tcp",
+      username: "2126cc0cb07a8db93032573f",
+      credential: "49sQ7pN1CfrpsUse",
+    },
+  ],
 };
 
 export default function VideoCallModal({
@@ -66,6 +82,12 @@ export default function VideoCallModal({
         console.log('  port      :', event.candidate.port);
         console.log('  target    :', targetSocketIdRef.current || '→ room (broadcast)');
         console.groupEnd();
+        
+        console.log("ICE Candidate:", event.candidate.candidate);
+        if (event.candidate.candidate.includes("relay")) {
+          console.log("✅ TURN Relay Candidate Found");
+        }
+
         socket.emit('ice_candidate', { toRoom: roomId, toSocketId: targetSocketIdRef.current, candidate: event.candidate });
       } else {
         log('ICE Candidate Emitted', 'All local candidates gathered (null candidate)');
