@@ -1638,3 +1638,78 @@ body.personality-gaming .msg-bubble {
     gap: 4px !important;
   }
 }
+
+/* ============================================================
+   MULTI-HEADER DISPLAY BREAKPOINTS & MOBILE MORE DROPDOWN
+   ============================================================ */
+.desktop-header-view {
+  display: flex !important;
+}
+.tablet-header-view {
+  display: none !important;
+}
+.mobile-header-view {
+  display: none !important;
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .desktop-header-view {
+    display: none !important;
+  }
+  .tablet-header-view {
+    display: flex !important;
+  }
+  .mobile-header-view {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .desktop-header-view {
+    display: none !important;
+  }
+  .tablet-header-view {
+    display: none !important;
+  }
+  .mobile-header-view {
+    display: flex !important;
+  }
+}
+
+/* Mobile More Dropdown Menu */
+.mobile-more-dropdown {
+  position: absolute;
+  top: 54px;
+  right: 12px;
+  z-index: 2600;
+  background: #161921;
+  border: 1px solid #2d3241;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.mobile-more-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: #f3f4f6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+}
+
+.mobile-more-dropdown-item:active {
+  background: rgba(124, 58, 237, 0.2);
+}

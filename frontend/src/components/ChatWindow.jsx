@@ -35,6 +35,9 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  // Mobile More Dropdown State
+  const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+
   // Real-Time Notifications State
   const [notifications, setNotifications] = useState([]);
 
@@ -490,64 +493,135 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       {/* Notifications Toast */}
       <NotificationToast notifications={notifications} onDismiss={handleDismissNotification} />
 
-      {/* Layer 4: Top Header Bar */}
-      <div style={{ position: 'relative', zIndex: 4, minHeight: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px', borderBottom: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)', flexWrap: 'nowrap', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          {/* Hamburger Menu (visible only on mobile via CSS class in index.css) */}
-          <button className="mobile-hamburger" onClick={onToggleMobileSidebar} title="Menu" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, display: 'none' }}>
-            ☰
-          </button>
-          <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14, padding: '4px 6px' }}>
-            ❮
-          </button>
-          {/* Avatar Icon */}
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, position: 'relative', flexShrink: 0 }}>
-            {getUserInitials(room.name)}
-            <span style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#22c55e', border: '1.5px solid #1c1f28' }} />
+      {/* Layer 4: Top Header Bar (Dedicated Multi-Header Architecture) */}
+      <div style={{ position: 'relative', zIndex: 4, background: 'var(--theme-sidebar-bg)', borderBottom: '1px solid var(--border)' }}>
+        
+        {/* ==================== 1. DESKTOP HEADER (>1024px) ==================== */}
+        <div className="desktop-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 16px', flexWrap: 'nowrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
+              ❮
+            </button>
+            <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, position: 'relative', flexShrink: 0 }}>
+              {getUserInitials(room.name)}
+              <span style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#22c55e', border: '1.5px solid #1c1f28' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
+              {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)' }}>Code: #{room.code}</div>}
+            </div>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
-            {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Code: #{room.code}</div>}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <button
+              onClick={() => setIsStudioOpen(true)}
+              title="Chat Personality Studio"
+              style={{
+                background: 'rgba(124, 58, 237, 0.2)',
+                border: '1px solid #7c3aed',
+                borderRadius: 6,
+                color: '#c084fc',
+                padding: '5px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              ✨ Studio
+            </button>
+            <button onClick={handleStartVoiceCall} title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+              📞 Voice
+            </button>
+            <button onClick={handleStartVideoCall} title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+              📹 Video
+            </button>
+            <button title="Share Link" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+              🔗
+            </button>
+            <button title="Search Chat" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+              🔍
+            </button>
+            <button onClick={() => onLeaveRoom(roomId)} title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+              🚪
+            </button>
           </div>
         </div>
 
-        {/* Action Buttons (Single Row, No Overlapping) */}
-        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', flexShrink: 0 }}>
-          <button
-            onClick={() => setIsStudioOpen(true)}
-            className="touch-btn"
-            title="Chat Personality Studio"
-            style={{
-              background: 'rgba(124, 58, 237, 0.2)',
-              border: '1px solid #7c3aed',
-              borderRadius: 6,
-              color: '#c084fc',
-              padding: '5px 8px',
-              fontSize: 12,
-              cursor: 'pointer',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <span>✨</span> <span className="btn-label">Studio</span>
-          </button>
-          <button onClick={handleStartVoiceCall} className="touch-btn" title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 8px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>📞</span> <span className="btn-label">Voice</span>
-          </button>
-          <button onClick={handleStartVideoCall} className="touch-btn" title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 8px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>📹</span> <span className="btn-label">Video</span>
-          </button>
-          <button title="Share Link" className="touch-btn" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 4 }}>
-            🔗
-          </button>
-          <button title="Search Chat" className="touch-btn" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 4 }}>
-            🔍
-          </button>
-          <button onClick={() => onLeaveRoom(roomId)} className="touch-btn" title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 4 }}>
-            🚪
-          </button>
+        {/* ==================== 2. TABLET HEADER (768px - 1024px) ==================== */}
+        <div className="tablet-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px', flexWrap: 'nowrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
+              ❮
+            </button>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+              {getUserInitials(room.name)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
+              {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)' }}>#{room.code}</div>}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <button onClick={() => setIsStudioOpen(true)} style={{ background: 'rgba(124, 58, 237, 0.2)', border: '1px solid #7c3aed', borderRadius: 6, color: '#c084fc', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>✨ Studio</button>
+            <button onClick={handleStartVoiceCall} style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>📞 Voice</button>
+            <button onClick={handleStartVideoCall} style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>📹 Video</button>
+          </div>
+        </div>
+
+        {/* ==================== 3. DEDICATED MOBILE HEADER (<768px) ==================== */}
+        <div className="mobile-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', flexWrap: 'nowrap', gap: 6 }}>
+          {/* Left: ☰ Avatar RoomName / Code */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+            <button onClick={onToggleMobileSidebar} title="Menu" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, padding: '4px 2px' }}>
+              ☰
+            </button>
+            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14, padding: '4px 2px' }}>
+              ❮
+            </button>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0, position: 'relative' }}>
+              {getUserInitials(room.name)}
+              <span style={{ position: 'absolute', bottom: 0, right: 0, width: 7, height: 7, borderRadius: '50%', background: '#22c55e', border: '1px solid #1c1f28' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2' }}>{room.name || 'Note to myself'}</div>
+              {room.code && <div style={{ fontSize: 9, color: 'var(--theme-text-muted, #6b7280)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{room.code}</div>}
+            </div>
+          </div>
+
+          {/* Right: Voice Video More */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            <button onClick={handleStartVoiceCall} className="touch-btn" title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
+              📞
+            </button>
+            <button onClick={handleStartVideoCall} className="touch-btn" title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
+              📹
+            </button>
+            <button onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)} className="touch-btn" title="More Options" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#f3f4f6', padding: '6px 10px', fontSize: 14, cursor: 'pointer', fontWeight: 700 }}>
+              ⋮
+            </button>
+          </div>
+
+          {/* Mobile ⋮ More Dropdown Menu */}
+          {isMobileMoreOpen && (
+            <div className="mobile-more-dropdown" onClick={(e) => e.stopPropagation()}>
+              <button className="mobile-more-dropdown-item" onClick={() => { setIsStudioOpen(true); setIsMobileMoreOpen(false); }}>
+                <span>✨</span> Appearance Studio
+              </button>
+              <button className="mobile-more-dropdown-item" onClick={() => { setIsMobileMoreOpen(false); }}>
+                <span>🔍</span> Search Chat
+              </button>
+              <button className="mobile-more-dropdown-item" onClick={() => { setIsMobileMoreOpen(false); }}>
+                <span>🔗</span> Share Room Link
+              </button>
+              <button className="mobile-more-dropdown-item" onClick={() => { onLeaveRoom(roomId); setIsMobileMoreOpen(false); }} style={{ color: '#ef4444' }}>
+                <span>🚪</span> Leave Room
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
