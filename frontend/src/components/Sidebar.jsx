@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/useAuth';
 import UserProfileModal from './profile/UserProfileModal';
@@ -28,6 +28,41 @@ export default function Sidebar({
   const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [showPersonalityStudio, setShowPersonalityStudio] = useState(false);
 
+  const touchStartXRef = useRef(0);
+
+  // Body Scroll Lock & ESC Key Listener
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileSidebarOpen, setIsMobileSidebarOpen]);
+
+  // Touch Swipe Left Gesture Handlers
+  const handleTouchStart = (e) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const deltaX = touchStartXRef.current - touchEndX;
+    if (deltaX > 50) {
+      setIsMobileSidebarOpen(false);
+    }
+  };
+
   // Derive initial/avatar from name
   const getUserInitials = (name) => {
     if (!name) return 'U';
@@ -55,7 +90,11 @@ export default function Sidebar({
         />
       )}
       
-      <aside className={`gajim-sidebar-container ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
+      <aside
+        className={`gajim-sidebar-container ${isMobileSidebarOpen ? 'mobile-open' : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* ─── 1. Leftmost Workspace Sidebar (56px) ────────────────────── */}
       <div
         style={{

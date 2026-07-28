@@ -1713,3 +1713,53 @@ body.personality-gaming .msg-bubble {
 .mobile-more-dropdown-item:active {
   background: rgba(124, 58, 237, 0.2);
 }
+
+/* ============================================================
+   MOBILE SIDEBAR DRAWER & BACKDROP ANIMATIONS
+   ============================================================ */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 2400;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.gajim-sidebar-container {
+  display: flex;
+  height: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+@media (max-width: 767px) {
+  .gajim-sidebar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(320px, 85vw);
+    height: 100vh;
+    z-index: 2500;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 35px rgba(0, 0, 0, 0.8);
+    padding-top: max(0px, env(safe-area-inset-top, 0px));
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    background: var(--theme-sidebar-bg);
+  }
+
+  .gajim-sidebar-container.mobile-open {
+    transform: translateX(0);
+  }
+
+  .mobile-hamburger {
+    display: inline-flex !important;
+  }
+}
