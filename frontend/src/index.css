@@ -32,6 +32,39 @@
   --theme-sidebar-bg:   #1a1c23;
   --theme-radius:       12px;
   --theme-font:         'Inter';
+
+  /* Modal & Border Utility Tokens */
+  --bg-modal:           #161921;
+  --border-dark:        #2d3241;
+  --bg-input-dark:      #1a1d25;
+}
+
+/* Reusable Utility Classes */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.avatar-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  position: relative;
 }
 
 /* ============================================================
