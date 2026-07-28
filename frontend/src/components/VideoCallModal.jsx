@@ -4,32 +4,49 @@ import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 
 // STUN discovers public IP; TURN relays media when STUN fails (symmetric NAT, cellular, firewalls)
-const ICE_SERVERS = {
-  iceServers: [
-    {
-      urls: "stun:stun.relay.metered.ca:80",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: import.meta.env.VITE_TURN_USERNAME,
-      credential: import.meta.env.VITE_TURN_CREDENTIAL,
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: import.meta.env.VITE_TURN_USERNAME,
-      credential: import.meta.env.VITE_TURN_CREDENTIAL,
-    },
-    {
-      urls: "turn:global.relay.metered.ca:443",
-      username: import.meta.env.VITE_TURN_USERNAME,
-      credential: import.meta.env.VITE_TURN_CREDENTIAL,
-    },
-    {
-      urls: "turns:global.relay.metered.ca:443?transport=tcp",
-      username: import.meta.env.VITE_TURN_USERNAME,
-      credential: import.meta.env.VITE_TURN_CREDENTIAL,
-    },
-  ],
+// Helper to construct ICE_SERVERS configuration safely
+const getIceServers = () => {
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME;
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
+
+  const servers = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.relay.metered.ca:80" },
+  ];
+
+  // Include TURN servers ONLY when valid non-empty username and credential exist
+  if (
+    turnUsername &&
+    turnCredential &&
+    String(turnUsername).trim() !== '' &&
+    String(turnCredential).trim() !== ''
+  ) {
+    servers.push(
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: turnUsername,
+        credential: turnCredential,
+      }
+    );
+  }
+
+  return { iceServers: servers };
 };
 
 export default function VideoCallModal({
@@ -66,6 +83,8 @@ export default function VideoCallModal({
 
   // Create & initialize WebRTC peer connection
   const createPeerConnection = () => {
+    const ICE_SERVERS = getIceServers();
+    console.log("ICE_SERVERS =", ICE_SERVERS);
     log('PC', 'Creating RTCPeerConnection with STUN+TURN ICE servers');
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
