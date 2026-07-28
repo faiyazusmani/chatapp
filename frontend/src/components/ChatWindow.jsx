@@ -823,17 +823,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
       {/* Reply Banner */}
       {replyingTo && (
-        <div style={{ padding: '6px 16px', background: 'var(--theme-msg-in-bg)', borderTop: '1px solid var(--border)', fontSize: 11, color: '#9ca3af', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Replying to <strong>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;</span>
-          <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>&times;</button>
+        <div style={{ padding: '6px 14px', background: 'var(--theme-msg-in-bg)', borderTop: '1px solid var(--border)', fontSize: 11, color: '#9ca3af', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>Replying to <strong>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;</span>
+          <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
         </div>
       )}
 
       {/* Editing Banner */}
       {editingMessage && (
-        <div style={{ padding: '6px 16px', background: 'rgba(147, 51, 234, 0.2)', borderTop: '1px solid #9333ea', fontSize: 11, color: '#a855f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Editing message: &quot;{editingMessage.content}&quot;</span>
-          <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>&times;</button>
+        <div style={{ padding: '6px 14px', background: 'rgba(147, 51, 234, 0.2)', borderTop: '1px solid #9333ea', fontSize: 11, color: '#a855f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>Editing message: &quot;{editingMessage.content}&quot;</span>
+          <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
         </div>
       )}
 
@@ -841,7 +841,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
 
       {/* Layer 4: Gajim Input Toolbar & Textarea */}
-      <div style={{ position: 'relative', zIndex: 4, padding: '10px 16px 14px', borderTop: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
+      <div style={{ position: 'relative', zIndex: 4, padding: '10px 14px max(12px, env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
         {isRecordingVoice ? (
           <VoiceRecorder onCancel={() => setIsRecordingVoice(false)} onSend={handleSendVoiceNote} />
         ) : (

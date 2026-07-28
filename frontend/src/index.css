@@ -1763,3 +1763,26 @@ body.personality-gaming .msg-bubble {
     display: inline-flex !important;
   }
 }
+
+/* ============================================================
+   RESPONSIVE MESSAGE BUBBLES & MEDIA ATTACHMENTS
+   ============================================================ */
+.msg-bubble {
+  max-width: clamp(75%, 80vw, 85%);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.msg-image-container img {
+  max-width: min(300px, 78vw);
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 767px) {
+  .scrollzone {
+    padding: 10px 12px !important;
+  }
+}
