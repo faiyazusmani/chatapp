@@ -75,7 +75,40 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Update user theme
+ * @route   PUT /api/users/theme
+ * @access  Private
+ */
+const updateTheme = async (req, res, next) => {
+  try {
+    if (!isDBConnected()) {
+      return res.status(503).json({ message: 'Database not connected' });
+    }
+
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId);
+
+    if (user) {
+      if (req.body.theme) {
+        user.theme = { ...user.theme, ...req.body.theme };
+      }
+      
+      const updatedUser = await user.save();
+      const userObj = updatedUser.toObject();
+      delete userObj.password;
+      
+      res.json(userObj.theme);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUserById,
-  updateProfile
+  updateProfile,
+  updateTheme
 };

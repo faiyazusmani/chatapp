@@ -1,18 +1,21 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { PresenceProvider } from './hooks/usePresence';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Chat from './pages/Chat';
-import { PresenceProvider } from './hooks/usePresence';
+
 
 export default function App() {
   return (
     <AuthProvider>
       <PresenceProvider>
-        <Routes>
+        <ThemeProvider>
+          <Routes>
         {/* Full-screen Gajim Desktop Messenger route */}
         <Route
           path="/chat"
@@ -40,6 +43,7 @@ export default function App() {
           }
         />
         </Routes>
+        </ThemeProvider>
       </PresenceProvider>
     </AuthProvider>
   );

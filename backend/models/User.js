@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: Date.now
     },
+    customStatus: {
+      text: { type: String, maxlength: 100, default: '' },
+      emoji: { type: String, default: '' },
+      expiresAt: { type: Date, default: null }
+    },
     // New Profile Fields
     fullName: { type: String, trim: true, default: '' },
     bio: { type: String, maxlength: 300, default: '' },
@@ -48,7 +53,18 @@ const userSchema = new mongoose.Schema(
     github: { type: String, trim: true, default: '' },
     linkedin: { type: String, trim: true, default: '' },
     birthday: { type: Date, default: null },
-    bannerImage: { type: String, default: 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1200&auto=format&fit=crop' }
+    bannerImage: { type: String, default: 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1200&auto=format&fit=crop' },
+    // Theme Customization
+    theme: {
+      preset: { type: String, default: 'default' },
+      primaryColor: { type: String, default: '#7c3aed' },
+      msgIncomingBg: { type: String, default: '#222530' },
+      msgOutgoingBg: { type: String, default: '#7c3aed' },
+      chatBg: { type: String, default: '#181a20' },
+      sidebarBg: { type: String, default: '#1a1c23' },
+      borderRadius: { type: String, default: '12px' },
+      fontFamily: { type: String, default: 'Inter' }
+    }
   },
   {
     timestamps: true

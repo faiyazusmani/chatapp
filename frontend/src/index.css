@@ -24,12 +24,14 @@
   --radius:          12px;
   --radius-sm:       8px;
 
-  /* Gajim Desktop Window Tokens */
-  --gajim-bg-window:     #121418;
-  --gajim-sidebar-ws:    #1a1c23;
-  --gajim-sidebar-conv:  #20232c;
-  --gajim-chat-bg:       #181a20;
-  --gajim-purple:        #9333ea;
+  /* Theme Customization System Tokens (Default Fallbacks) */
+  --theme-primary:      #7c3aed;
+  --theme-msg-in-bg:    #222530;
+  --theme-msg-out-bg:   #7c3aed;
+  --theme-chat-bg:      #181a20;
+  --theme-sidebar-bg:   #1a1c23;
+  --theme-radius:       12px;
+  --theme-font:         'Inter';
 }
 
 /* ============================================================
@@ -293,7 +295,7 @@ button {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--gajim-bg-window);
+  background: var(--theme-chat-bg);
   overflow: hidden;
 }
 
@@ -351,7 +353,7 @@ button {
 .ws-sidebar {
   width: 56px;
   min-width: 56px;
-  background: var(--gajim-sidebar-ws);
+  background: var(--theme-sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -394,7 +396,7 @@ button {
   transform: translateY(-50%);
   width: 3px;
   height: 22px;
-  background: var(--gajim-purple);
+  background: var(--theme-primary);
   border-radius: 0 3px 3px 0;
 }
 
@@ -421,7 +423,7 @@ button {
   height: 10px;
   background: var(--success);
   border-radius: 50%;
-  border: 2px solid var(--gajim-sidebar-ws);
+  border: 2px solid var(--theme-sidebar-bg);
 }
 
 /* ============================================================
@@ -430,7 +432,7 @@ button {
 .conv-sidebar {
   width: 290px;
   min-width: 290px;
-  background: var(--gajim-sidebar-conv);
+  background: var(--theme-sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -500,7 +502,7 @@ button {
 
 .conv-room-item.active {
   background: rgba(124, 58, 237, 0.12);
-  border-left-color: var(--gajim-purple);
+  border-left-color: var(--theme-primary);
 }
 
 .conv-room-avatar {
@@ -556,7 +558,7 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--gajim-chat-bg);
+  background: var(--theme-chat-bg);
   overflow: hidden;
 }
 
@@ -708,7 +710,7 @@ button {
 }
 
 .msg-row.own .msg-avatar-small {
-  background: var(--gajim-purple);
+  background: var(--theme-primary);
 }
 
 .msg-content-wrap {
@@ -850,6 +852,17 @@ button {
 @keyframes typingBounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30%            { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+@keyframes audio-wave {
+  0% { height: 4px; }
+  100% { height: 20px; }
 }
 
 /* ============================================================
@@ -1336,15 +1349,133 @@ button {
 .modal-tab-btn.active { background: var(--primary); color: #fff; }
 
 /* ============================================================
-   RESPONSIVE
+   RESPONSIVE LAYOUT & SIDEBAR (Steps 1 & 2)
    ============================================================ */
-@media (max-width: 768px) {
-  .conv-sidebar { width: 240px; min-width: 240px; }
-  .msg-content-wrap { max-width: 85%; }
+
+/* Base container for sidebar to handle flex styles removed from inline */
+.gajim-sidebar-container {
+  display: flex;
+  height: 100%;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 40;
 }
 
-@media (max-width: 640px) {
-  .conv-sidebar { display: none; }
-  .ws-sidebar { display: none; }
-  .auth-card { padding: 1.75rem 1.25rem; }
+/* Mobile Backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  opacity: 1;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* --- Tablets (768px - 1024px) --- */
+@media (max-width: 1024px) {
+  .conv-sidebar { 
+    width: clamp(220px, 30vw, 290px); 
+    min-width: unset; 
+  }
+}
+
+/* --- Mobile (Below 768px) --- */
+@media (max-width: 767px) {
+  .gajim-sidebar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  
+  .gajim-sidebar-container.mobile-open {
+    transform: translateX(0);
+  }
+
+  .conv-sidebar { 
+    width: calc(100vw - 56px - 40px); /* Leave 40px for backdrop clicking */
+    max-width: 320px;
+  }
+  
+  .mobile-hamburger {
+    display: block !important;
+  }
+  
+  .msg-content-wrap { 
+    max-width: 80%; 
+  }
+  
+  /* Full screen modals & bottom sheets on mobile */
+  .modal-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  
+  .user-profile-modal {
+    margin-top: auto; /* Bottom sheet effect */
+    height: 90% !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+  
+  /* Stack video grid vertically on mobile */
+  .video-call-grid.split {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .auth-card { 
+    padding: 1.75rem 1.25rem; 
+  }
+}
+
+/* ============================================================
+   THEME CUSTOMIZATION BUBBLES
+   ============================================================ */
+.msg-bubble {
+  padding: 8px 12px;
+  border-radius: var(--theme-radius);
+  display: inline-block;
+  max-width: fit-content;
+}
+
+.msg-bubble-in {
+  background: var(--theme-msg-in-bg);
+  color: var(--text);
+}
+
+.msg-bubble-out {
+  background: var(--theme-msg-out-bg);
+  color: #fff;
+}
+
+/* AMOled Theme Override */
+body.theme-amoled {
+  --theme-chat-bg: #000000;
+  --theme-sidebar-bg: #000000;
+  --border: #111;
+}
+
+/* Glassmorphism Theme Override */
+body.theme-glass .gajim-body {
+  background: url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1920&auto=format&fit=crop') center/cover no-repeat;
+}
+body.theme-glass .conv-sidebar,
+body.theme-glass .ws-sidebar {
+  background: rgba(20, 22, 30, 0.4) !important;
+  backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+body.theme-glass .msg-bubble {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }

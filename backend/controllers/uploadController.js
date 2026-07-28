@@ -21,6 +21,9 @@ const getFileType = (mimetype, originalname) => {
   if (mimetype.startsWith('image/') || /jpeg|jpg|png|gif|webp/.test(ext)) {
     return 'image';
   }
+  if (mimetype.startsWith('audio/') || mimetype.startsWith('video/webm') || /webm|mp3|wav|m4a|ogg|mp4/.test(ext)) {
+    return 'audio';
+  }
   if (mimetype === 'application/pdf' || ext === '.pdf') {
     return 'pdf';
   }

@@ -24,7 +24,7 @@ const messageSchema = new mongoose.Schema(
     },
     fileType: {
       type: String,
-      enum: ['image', 'pdf', 'document', null],
+      enum: ['image', 'pdf', 'document', 'audio', 'call', null],
       default: null
     },
     fileName: {
@@ -40,6 +40,12 @@ const messageSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+      }
+    ],
+    reactions: [
+      {
+        emoji: { type: String, required: true },
+        users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
       }
     ],
     isEdited: {

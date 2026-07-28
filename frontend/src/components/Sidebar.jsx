@@ -2,9 +2,11 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/useAuth';
 import UserProfileModal from './profile/UserProfileModal';
+import StatusPickerModal from './profile/StatusPickerModal';
+import ThemeSettingsModal from './profile/ThemeSettingsModal';
 
 export default function Sidebar({
-  activeTab,
+  activeTab = 'chats',
   setActiveTab,
   onOpenCreateModal,
   onOpenJoinModal,
@@ -13,11 +15,15 @@ export default function Sidebar({
   activeRoom,
   onSelectRoom,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  isMobileSidebarOpen,
+  setIsMobileSidebarOpen
 }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
 
   // Derive initial/avatar from name
   const getUserInitials = (name) => {
@@ -28,7 +34,7 @@ export default function Sidebar({
   };
 
   const getRoomColor = (name) => {
-    const colors = ['#d97706', '#2563eb', '#7c3aed', '#059669', '#dc2626', '#db2777'];
+    const colors = ['#d97706', '#2563eb', 'var(--theme-primary)', '#059669', '#dc2626', '#db2777'];
     let hash = 0;
     for (let i = 0; i < (name || '').length; i++) hash += name.charCodeAt(i);
     return colors[Math.abs(hash) % colors.length];
@@ -37,13 +43,22 @@ export default function Sidebar({
   const currentRoomsList = activeTab === 'joined' ? recentRooms : rooms;
 
   return (
-    <aside style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
-      {/* ─── 1. Leftmost Workspace Sidebar (56px) ────────────────────── */}
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="sidebar-backdrop"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+      
+      <aside className={`gajim-sidebar-container ${isMobileSidebarOpen ? 'mobile-open' : ''}`}>
+        {/* ─── 1. Leftmost Workspace Sidebar (56px) ────────────────────── */}
       <div
         style={{
           width: 56,
           height: '100%',
-          background: '#16181f',
+          background: 'var(--theme-sidebar-bg)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -67,7 +82,7 @@ export default function Sidebar({
                       left: -8,
                       width: 4,
                       height: 24,
-                      background: '#9333ea',
+                      background: 'var(--theme-primary)',
                       borderRadius: '0 4px 4px 0'
                     }}
                   />
@@ -106,7 +121,7 @@ export default function Sidebar({
               width: 38,
               height: 38,
               borderRadius: 19,
-              background: '#222530',
+              background: 'var(--theme-msg-in-bg)',
               border: '1px dashed #3f4657',
               color: '#9ca3af',
               fontSize: 18,
@@ -123,6 +138,27 @@ export default function Sidebar({
 
         {/* Bottom Actions: Collapse, Settings & Current User Profile */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <button
+            title="Recent Calls"
+            onClick={() => setActiveTab('calls')}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: activeTab === 'calls' ? 12 : 19,
+              background: activeTab === 'calls' ? 'var(--theme-primary)' : 'transparent',
+              border: 'none',
+              color: '#9ca3af',
+              fontSize: 18,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s'
+            }}
+          >
+            📞
+          </button>
+
           <button
             title="Collapse"
             style={{ background: 'transparent', border: 'none', color: '#6b7280', fontSize: 14, cursor: 'pointer' }}
@@ -148,7 +184,7 @@ export default function Sidebar({
                 width: 36,
                 height: 36,
                 borderRadius: '50%',
-                background: '#7c3aed',
+                background: 'var(--theme-primary)',
                 border: 'none',
                 color: '#fff',
                 fontWeight: 600,
@@ -164,18 +200,39 @@ export default function Sidebar({
               ) : (
                 getUserInitials(user?.username || 'Chatter')
               )}
-              <span
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  right: 0,
-                  width: 9,
-                  height: 9,
-                  borderRadius: '50%',
-                  background: '#22c55e',
-                  border: '1.5px solid #16181f'
-                }}
-              />
+              {user?.customStatus?.emoji ? (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: -4,
+                    right: -4,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: 'var(--theme-sidebar-bg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 10
+                  }}
+                  title={user.customStatus.text}
+                >
+                  {user.customStatus.emoji}
+                </span>
+              ) : (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    border: '1.5px solid var(--theme-sidebar-bg)'
+                  }}
+                />
+              )}
             </button>
 
             {showUserMenu && (
@@ -184,7 +241,7 @@ export default function Sidebar({
                   position: 'absolute',
                   bottom: 40,
                   left: 10,
-                  background: '#1f222b',
+                  background: 'var(--theme-sidebar-bg)',
                   border: '1px solid #2e3342',
                   borderRadius: 8,
                   padding: 8,
@@ -196,6 +253,29 @@ export default function Sidebar({
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#e5e7eb', marginBottom: 4 }}>
                   {user?.username}
                 </div>
+                {user?.customStatus?.text && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9ca3af', marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid #2e3342' }}>
+                    <span>{user.customStatus.emoji}</span>
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.customStatus.text}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => { setShowUserMenu(false); setShowStatusPicker(true); }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#d1d5db',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginBottom: 4
+                  }}
+                >
+                  💬 Set Custom Status
+                </button>
                 <button
                   onClick={() => { setShowUserMenu(false); setShowProfile(true); }}
                   style={{
@@ -212,6 +292,23 @@ export default function Sidebar({
                   }}
                 >
                   👤 Profile
+                </button>
+                <button
+                  onClick={() => { setShowUserMenu(false); setShowThemeSettings(true); }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#d1d5db',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginBottom: 4
+                  }}
+                >
+                  🎨 Themes
                 </button>
                 <button
                   onClick={logout}
@@ -240,7 +337,7 @@ export default function Sidebar({
         style={{
           width: 290,
           height: '100%',
-          background: '#1c1f28',
+          background: 'var(--theme-sidebar-bg)',
           borderRight: '1px solid #282c37',
           display: 'flex',
           flexDirection: 'column',
@@ -305,7 +402,7 @@ export default function Sidebar({
                 height: 32,
                 borderRadius: 6,
                 border: 'none',
-                background: '#9333ea',
+                background: 'var(--theme-primary)',
                 color: '#fff',
                 cursor: 'pointer',
                 display: 'flex',
@@ -379,7 +476,7 @@ export default function Sidebar({
                         height: 8,
                         borderRadius: '50%',
                         background: '#22c55e',
-                        border: '1.5px solid #1c1f28'
+                        border: '1.5px solid var(--theme-sidebar-bg)'
                       }}
                     />
                   </div>
@@ -432,7 +529,16 @@ export default function Sidebar({
           onClose={() => setShowProfile(false)} 
         />
       )}
+
+      {showStatusPicker && (
+        <StatusPickerModal onClose={() => setShowStatusPicker(false)} />
+      )}
+
+      {showThemeSettings && (
+        <ThemeSettingsModal onClose={() => setShowThemeSettings(false)} />
+      )}
     </aside>
+    </>
   );
 }
 

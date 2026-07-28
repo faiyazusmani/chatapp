@@ -132,11 +132,11 @@ export default function UserProfileModal({ targetUserId, onClose }) {
 
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={modalStyle}>
+      <div className="user-profile-modal modal-box" style={modalStyle}>
         
         {/* Banner Section */}
         <div style={{ position: 'relative', height: 180, width: '100%', backgroundColor: '#111216', borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden' }}>
-          <img src={isEditing ? editForm.bannerImage : profileData.bannerImage} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={(isEditing ? editForm.bannerImage : profileData.bannerImage) || 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1200&auto=format&fit=crop'} alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           {isEditing && (
             <button onClick={() => handleImageSelect('bannerImage')} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>
               ✏️ Change Banner
@@ -146,8 +146,12 @@ export default function UserProfileModal({ targetUserId, onClose }) {
 
         {/* Avatar Section */}
         <div style={{ position: 'relative', marginTop: -50, marginLeft: 20, width: 100, height: 100, borderRadius: '50%', backgroundColor: '#181a20', padding: 6 }}>
-          <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#374151' }}>
-            <img src={isEditing ? editForm.avatar : profileData.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', backgroundColor: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 32, fontWeight: 700 }}>
+            {(isEditing ? editForm.avatar : profileData.avatar) ? (
+              <img src={isEditing ? editForm.avatar : profileData.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              (profileData.fullName || profileData.username)?.substring(0, 2).toUpperCase() || 'M'
+            )}
           </div>
           {isEditing && (
             <div onClick={() => handleImageSelect('avatar')} style={{ position: 'absolute', inset: 6, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 24 }}>
@@ -222,6 +226,13 @@ export default function UserProfileModal({ targetUserId, onClose }) {
             <div style={{ marginTop: 10 }}>
               <h2 style={{ margin: 0, color: '#f3f4f6', fontSize: 24, fontWeight: 800 }}>{profileData.fullName || profileData.username}</h2>
               <div style={{ color: '#9ca3af', fontSize: 14 }}>@{profileData.username}</div>
+              
+              {profileData.customStatus?.text && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '6px 12px', background: '#2e3342', borderRadius: 20, color: '#f3f4f6', fontSize: 13, border: '1px solid #3f4657' }}>
+                  <span>{profileData.customStatus.emoji}</span>
+                  <span>{profileData.customStatus.text}</span>
+                </div>
+              )}
               
               <div style={{ margin: '20px 0', padding: '15px', background: '#1c1f28', borderRadius: 8, color: '#d1d5db', fontSize: 14, whiteSpace: 'pre-wrap' }}>
                 {profileData.bio || <span style={{ color: '#6b7280', fontStyle: 'italic' }}>No bio provided.</span>}

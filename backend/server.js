@@ -2,6 +2,8 @@ const http = require('http');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -32,6 +34,21 @@ app.use(cors({
   credentials: true
 }));
 
+// Security Headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Rate Limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per `window` (here, per 15 minutes)
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
+
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -39,8 +56,11 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+const callRoutes = require('./routes/callRoutes');
+
 // API Routes
 app.use('/api', apiRoutes);
+app.use('/api/calls', callRoutes);
 
 // Error Middleware
 app.use(errorHandler);

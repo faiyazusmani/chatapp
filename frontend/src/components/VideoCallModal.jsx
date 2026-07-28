@@ -206,11 +206,32 @@ export default function VideoCallModal({
     }
   };
 
+  // Helper to format friendly media error messages
+  const formatMediaError = (err) => {
+    if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'HTTPS Required: Browser blocks Camera/Mic on HTTP IP address.';
+    }
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      return 'Camera/Microphone permission denied in browser/OS settings.';
+    }
+    if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      return 'No camera or microphone found on this device.';
+    }
+    if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      return 'Camera or Microphone is currently in use by another app.';
+    }
+    return err.message || 'Camera/Microphone access denied';
+  };
+
   // Start Video Call (Caller Flow)
   const startCall = async () => {
     try {
       setCallState('calling');
       setPeerStatus('Initiating video call...');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(!window.isSecureContext ? 'HTTPS is required to access Camera/Microphone on non-localhost IP.' : 'Camera/Microphone API not supported.');
+      }
 
       log('Call', 'Requesting camera + microphone via getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -250,7 +271,7 @@ export default function VideoCallModal({
       socket.emit('video_call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
     } catch (err) {
       console.error('[WebRTC Error] Could not access camera/microphone:', err);
-      setPeerStatus('Camera/Microphone permission denied');
+      setPeerStatus(formatMediaError(err));
     }
   };
 
@@ -259,6 +280,10 @@ export default function VideoCallModal({
     try {
       setCallState('connecting');
       setPeerStatus('Connecting video feed...');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(!window.isSecureContext ? 'HTTPS is required to access Camera/Microphone on non-localhost IP.' : 'Camera/Microphone API not supported.');
+      }
 
       log('Accept', 'Accepting video call from socket:', targetSocketIdRef.current);
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -313,7 +338,7 @@ export default function VideoCallModal({
       setPeerStatus('Video Call Active');
     } catch (err) {
       console.error('[WebRTC Error] Could not accept video call:', err);
-      setPeerStatus('Failed to connect video stream');
+      setPeerStatus(formatMediaError(err));
     }
   };
 
@@ -540,7 +565,7 @@ export default function VideoCallModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 17, 23, 0.88)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
-      <div style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, width: '100%', maxWidth: focusedParticipant ? 960 : 720, overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.6)', transition: 'all 0.2s ease' }}>
+      <div className="modal-box" style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, width: '100%', maxWidth: focusedParticipant ? 960 : 720, overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.6)', transition: 'all 0.2s ease' }}>
         {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #313743', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161921' }}>
           <div>
@@ -555,7 +580,7 @@ export default function VideoCallModal({
         </div>
 
         {/* Video Grid Layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: focusedParticipant ? '1fr' : '1fr 1fr', gap: 12, padding: 16, background: '#0F1117', minHeight: 320 }}>
+        <div className={`video-call-grid ${focusedParticipant ? 'focused' : 'split'}`} style={{ gap: 12, padding: 16, background: '#0F1117', minHeight: 320 }}>
           {/* Local Video Stream Card */}
           {(!focusedParticipant || focusedParticipant === 'local') && (
             <div

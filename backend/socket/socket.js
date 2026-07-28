@@ -1,8 +1,10 @@
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const Room = require('../models/Room');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const CallHistory = require('../models/CallHistory');
 const { memoryMessages } = require('../controllers/messageController');
 const presenceHandler = require('./presenceHandler');
 
@@ -221,6 +223,62 @@ const initSocket = (server) => {
       socket.to(roomId).emit('messages_read', { roomId, userId });
     });
 
+    // Custom Status Update
+    socket.on('update_status', async (statusData) => {
+      try {
+        const userId = socket.user?._id || socket.user?.id;
+        if (isDBConnected() && userId) {
+          const user = await User.findById(userId);
+          if (user) {
+            user.customStatus = statusData;
+            await user.save();
+            // Broadcast to everyone
+            io.emit('status_updated', { userId, customStatus: statusData });
+          }
+        }
+      } catch (err) {
+        console.error('[Socket Error] Failed to update status:', err.message);
+      }
+    });
+
+    // Toggle Message Reaction
+    socket.on('toggle_reaction', async ({ messageId, roomId, emoji }) => {
+      try {
+        const userId = socket.user?._id || socket.user?.id;
+        if (!isDBConnected() || !userId) return;
+
+        const message = await Message.findById(messageId);
+        if (!message) return;
+
+        const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
+        
+        if (reactionIndex > -1) {
+          const userIndex = message.reactions[reactionIndex].users.indexOf(userId);
+          if (userIndex > -1) {
+            // Remove user from reaction
+            message.reactions[reactionIndex].users.splice(userIndex, 1);
+            // If no users left, remove the reaction entirely
+            if (message.reactions[reactionIndex].users.length === 0) {
+              message.reactions.splice(reactionIndex, 1);
+            }
+          } else {
+            // Add user to existing reaction
+            message.reactions[reactionIndex].users.push(userId);
+          }
+        } else {
+          // Add new reaction
+          message.reactions.push({ emoji, users: [userId] });
+        }
+
+        const updatedMessage = await message.save();
+        const populatedMessage = await Message.findById(updatedMessage._id).populate('sender', 'username email avatar');
+        
+        io.to(roomId).emit('message_reaction_updated', populatedMessage);
+      } catch (err) {
+        console.error('[Socket Error] Failed to toggle reaction:', err.message);
+      }
+    });
+
     // =========================================================================
     // WebRTC Voice Calling Signaling Events
     // FIX: All P2P signaling events now route to a specific target socket ID
@@ -228,8 +286,22 @@ const initSocket = (server) => {
     // messages from corrupting unrelated peer connections in multi-user rooms.
     // =========================================================================
 
-    socket.on('call_user', ({ toRoom, toSocketId, offer, caller }) => {
+    socket.on('call_user', async ({ toRoom, toSocketId, offer, caller }) => {
       console.log(`[WebRTC Voice] Call from ${caller?.username} (${socket.id}) → room ${toRoom}`);
+      
+      try {
+        if (isDBConnected() && caller) {
+          await CallHistory.create({
+            caller: caller._id || caller.id,
+            room: toRoom,
+            type: 'voice',
+            status: 'missed'
+          });
+        }
+      } catch (err) {
+        console.error('CallHistory voice call_user error:', err);
+      }
+
       if (toSocketId) {
         // Direct peer-to-peer signaling to a specific socket
         socket.to(toSocketId).emit('call_incoming', { offer, caller, fromSocket: socket.id });
@@ -239,8 +311,22 @@ const initSocket = (server) => {
       }
     });
 
-    socket.on('answer_call', ({ toSocketId, toRoom, answer }) => {
+    socket.on('answer_call', async ({ toSocketId, toRoom, answer }) => {
       console.log(`[WebRTC Voice] Answer from ${socket.id} → ${toSocketId || toRoom}`);
+      
+      try {
+        if (isDBConnected()) {
+          const call = await CallHistory.findOne({ room: toRoom, status: 'missed', type: 'voice' }).sort({ createdAt: -1 });
+          if (call) {
+            call.status = 'ongoing';
+            call.receiver = socket.user?._id || socket.user?.id;
+            await call.save();
+          }
+        }
+      } catch (err) {
+        console.error('CallHistory voice answer error:', err);
+      }
+
       if (toSocketId) {
         socket.to(toSocketId).emit('call_answered', { answer, fromSocket: socket.id });
       } else {
@@ -261,8 +347,35 @@ const initSocket = (server) => {
       socket.to(toRoom).emit('audio_toggled', { muted, username });
     });
 
-    socket.on('end_call', ({ toRoom }) => {
+    socket.on('end_call', async ({ toRoom }) => {
       console.log(`[WebRTC Voice] Call ended in room ${toRoom} by ${socket.id}`);
+      
+      try {
+        if (isDBConnected()) {
+          const call = await CallHistory.findOne({ room: toRoom, type: 'voice' }).sort({ createdAt: -1 });
+          if (call && (call.status === 'ongoing' || call.status === 'missed')) {
+            if (call.status === 'ongoing') {
+              call.status = 'completed';
+              call.endTime = new Date();
+              call.duration = Math.round((call.endTime - call.startTime) / 1000);
+            }
+            await call.save();
+
+            // Create system message
+            const msg = await Message.create({
+              room: toRoom,
+              sender: call.caller,
+              content: JSON.stringify({ type: 'voice', status: call.status, duration: call.duration }),
+              fileType: 'call'
+            });
+            const populatedMsg = await Message.findById(msg._id).populate('sender', 'username email avatar customStatus');
+            io.to(toRoom).emit('receive_message', populatedMsg);
+          }
+        }
+      } catch (err) {
+        console.error('CallHistory voice end error:', err);
+      }
+
       socket.to(toRoom).emit('call_ended');
     });
 
@@ -270,8 +383,22 @@ const initSocket = (server) => {
     // WebRTC Video Calling & Screen Sharing Signaling Events
     // =========================================================================
 
-    socket.on('video_call_user', ({ toRoom, toSocketId, offer, caller }) => {
+    socket.on('video_call_user', async ({ toRoom, toSocketId, offer, caller }) => {
       console.log(`[WebRTC Video] Video call from ${caller?.username} (${socket.id}) → room ${toRoom}`);
+      
+      try {
+        if (isDBConnected() && caller) {
+          await CallHistory.create({
+            caller: caller._id || caller.id,
+            room: toRoom,
+            type: 'video',
+            status: 'missed'
+          });
+        }
+      } catch (err) {
+        console.error('CallHistory video call_user error:', err);
+      }
+
       if (toSocketId) {
         socket.to(toSocketId).emit('video_call_incoming', { offer, caller, fromSocket: socket.id });
       } else {
@@ -279,8 +406,22 @@ const initSocket = (server) => {
       }
     });
 
-    socket.on('video_call_answer', ({ toSocketId, toRoom, answer }) => {
+    socket.on('video_call_answer', async ({ toSocketId, toRoom, answer }) => {
       console.log(`[WebRTC Video] Video answer from ${socket.id} → ${toSocketId || toRoom}`);
+      
+      try {
+        if (isDBConnected()) {
+          const call = await CallHistory.findOne({ room: toRoom, status: 'missed', type: 'video' }).sort({ createdAt: -1 });
+          if (call) {
+            call.status = 'ongoing';
+            call.receiver = socket.user?._id || socket.user?.id;
+            await call.save();
+          }
+        }
+      } catch (err) {
+        console.error('CallHistory video answer error:', err);
+      }
+
       if (toSocketId) {
         socket.to(toSocketId).emit('video_call_answered', { answer, fromSocket: socket.id });
       } else {
@@ -302,8 +443,35 @@ const initSocket = (server) => {
       socket.to(toRoom).emit('screen_share_stopped', { username });
     });
 
-    socket.on('end_video_call', ({ toRoom }) => {
+    socket.on('end_video_call', async ({ toRoom }) => {
       console.log(`[WebRTC Video] Video call ended in room ${toRoom}`);
+      
+      try {
+        if (isDBConnected()) {
+          const call = await CallHistory.findOne({ room: toRoom, type: 'video' }).sort({ createdAt: -1 });
+          if (call && (call.status === 'ongoing' || call.status === 'missed')) {
+            if (call.status === 'ongoing') {
+              call.status = 'completed';
+              call.endTime = new Date();
+              call.duration = Math.round((call.endTime - call.startTime) / 1000);
+            }
+            await call.save();
+
+            // Create system message
+            const msg = await Message.create({
+              room: toRoom,
+              sender: call.caller,
+              content: JSON.stringify({ type: 'video', status: call.status, duration: call.duration }),
+              fileType: 'call'
+            });
+            const populatedMsg = await Message.findById(msg._id).populate('sender', 'username email avatar customStatus');
+            io.to(toRoom).emit('receive_message', populatedMsg);
+          }
+        }
+      } catch (err) {
+        console.error('CallHistory video end error:', err);
+      }
+
       socket.to(toRoom).emit('video_call_ended');
     });
 

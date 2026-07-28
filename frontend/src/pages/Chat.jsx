@@ -4,6 +4,7 @@ import RoomCard from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
 import ChatWindow from '../components/ChatWindow';
+import CallHistoryPage from './CallHistoryPage';
 import api from '../services/api';
 
 export default function Chat() {
@@ -19,6 +20,9 @@ export default function Chat() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  
+  // Responsive UI state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -42,6 +46,7 @@ export default function Chat() {
   // Handle Select Room
   const handleSelectRoom = (room) => {
     setActiveRoom(room);
+    setIsMobileSidebarOpen(false); // Close sidebar on mobile when a room is selected
 
     // Track recent room
     setRecentRooms((prev) => {
@@ -132,12 +137,18 @@ export default function Chat() {
           onSelectRoom={handleSelectRoom}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          isMobileSidebarOpen={isMobileSidebarOpen}
+          setIsMobileSidebarOpen={setIsMobileSidebarOpen}
         />
 
         {/* Main Workspace Area */}
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-          {/* Toast Notification Banner */}
-          {toastMessage && (
+          {activeTab === 'calls' ? (
+            <CallHistoryPage />
+          ) : (
+            <>
+              {/* Toast Notification Banner */}
+              {toastMessage && (
             <div
               style={{
                 position: 'fixed',
@@ -178,6 +189,7 @@ export default function Chat() {
               room={activeRoom}
               onLeaveRoom={handleLeaveRoom}
               onBack={() => setActiveRoom(null)}
+              onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
             />
           ) : (
             /* Gajim Minimal Empty State */
@@ -187,7 +199,9 @@ export default function Chat() {
               <p style={{ fontSize: 13, margin: 0 }}>Select a contact or room from the roster to start chatting.</p>
             </div>
           )}
-        </main>
+          </>
+        )}
+      </main>
       </div>
 
       {/* Create Room Modal */}

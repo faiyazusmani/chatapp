@@ -43,6 +43,9 @@ const seedMemoryMessages = (roomId) => {
 const getRoomMessages = async (req, res, next) => {
   try {
     const { roomId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100;
+    const skip = (page - 1) * limit;
 
     if (isDBConnected()) {
       const messages = await Message.find({ room: roomId })
@@ -51,16 +54,19 @@ const getRoomMessages = async (req, res, next) => {
           path: 'replyTo',
           populate: { path: 'sender', select: 'username' }
         })
-        .sort({ createdAt: 1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
 
-      return res.json(messages);
+      return res.json(messages.reverse());
     } else {
       seedMemoryMessages(roomId);
-      const messages = Array.from(memoryMessages.values())
+      const allMsgs = Array.from(memoryMessages.values())
         .filter((m) => m.room === roomId)
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-      return res.json(messages);
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      const paginatedMsgs = allMsgs.slice(skip, skip + limit).reverse();
+      return res.json(paginatedMsgs);
     }
   } catch (error) {
     next(error);

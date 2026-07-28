@@ -236,11 +236,32 @@ export default function VoiceCallModal({
     }
   };
 
+  // Helper to format friendly media error messages
+  const formatMediaError = (err) => {
+    if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'HTTPS Required: Browser blocks Mic on HTTP IP address.';
+    }
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      return 'Microphone permission denied in browser/OS settings.';
+    }
+    if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      return 'No microphone hardware found on this device.';
+    }
+    if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      return 'Microphone is currently in use by another app.';
+    }
+    return err.message || 'Microphone access denied';
+  };
+
   // Start Voice Call (Caller Flow)
   const startCall = async () => {
     try {
       setCallState('calling');
       setPeerStatus('Calling room members...');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(!window.isSecureContext ? 'HTTPS is required to access Microphone on non-localhost IP.' : 'Microphone API not supported by browser.');
+      }
 
       log('getUserMedia', 'Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -276,7 +297,7 @@ export default function VoiceCallModal({
       socket.emit('call_user', { toRoom: roomId, toSocketId: null, offer, caller: user });
     } catch (err) {
       log('Error', 'getUserMedia failed:', err.message);
-      setPeerStatus('Microphone permission denied');
+      setPeerStatus(formatMediaError(err));
     }
   };
 
@@ -285,6 +306,10 @@ export default function VoiceCallModal({
     try {
       setCallState('connecting');
       setPeerStatus('Connecting call...');
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error(!window.isSecureContext ? 'HTTPS is required to access Microphone on non-localhost IP.' : 'Microphone API not supported by browser.');
+      }
 
       log('getUserMedia', 'Requesting microphone (callee)...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -335,7 +360,7 @@ export default function VoiceCallModal({
       setPeerStatus('Connected (Active Call)');
     } catch (err) {
       log('Error', 'acceptCall failed:', err.message);
-      setPeerStatus('Failed to connect call');
+      setPeerStatus(formatMediaError(err));
     }
   };
 
@@ -496,8 +521,8 @@ export default function VoiceCallModal({
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 17, 23, 0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-      <div style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, padding: 24, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 17, 23, 0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
+      <div className="modal-box voice-modal" style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, padding: 24, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
         {/* FIX: Added playsInline to prevent mobile Safari autoplay block */}
         <audio ref={remoteAudioRef} autoPlay playsInline />
 
