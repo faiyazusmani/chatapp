@@ -1611,7 +1611,7 @@ body.personality-gaming .msg-bubble {
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 375px) {
   .responsive-grid-gallery {
     grid-template-columns: 1fr !important;
   }
@@ -1626,6 +1626,13 @@ body.personality-gaming .msg-bubble {
 
   .responsive-grid-gallery {
     grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Desktop Pixel Perfect (>= 1024px) */
+@media (min-width: 1024px) {
+  .responsive-grid-gallery {
+    grid-template-columns: repeat(6, 1fr) !important;
   }
 }
 
