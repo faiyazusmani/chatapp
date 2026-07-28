@@ -1822,6 +1822,35 @@ body.personality-gaming .msg-bubble {
   }
 }
 
+/* ============================================================
+   NATIVE MOBILE APP TOUCH & FEEL POLISH
+   ============================================================ */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.msg-bubble,
+input,
+textarea {
+  user-select: text;
+}
+
+.scrollzone {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.touch-btn {
+  min-height: 44px;
+  touch-action: manipulation;
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.1s ease;
+}
+
+.touch-btn:active {
+  transform: scale(0.96) !important;
+  opacity: 0.88 !important;
+}
+
 @media (max-width: 767px) {
   .scrollzone {
     padding: 10px 12px !important;
