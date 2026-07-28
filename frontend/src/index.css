@@ -1555,10 +1555,18 @@ body.personality-gaming .msg-bubble {
    MOBILE-FIRST RESPONSIVE ARCHITECTURE & SAFE-AREA INSETS
    ============================================================ */
 :root {
-  --font-clamp-title: clamp(1rem, 2.5vw, 1.25rem);
-  --font-clamp-body: clamp(0.75rem, 2vw, 0.875rem);
-  --font-clamp-small: clamp(0.6875rem, 1.8vw, 0.75rem);
+  --font-clamp-h1: clamp(1.25rem, 3vw, 1.75rem);
+  --font-clamp-title: clamp(0.9375rem, 2.2vw, 1.125rem);
+  --font-clamp-body: clamp(0.75rem, 1.8vw, 0.875rem);
+  --font-clamp-small: clamp(0.6875rem, 1.5vw, 0.75rem);
   --touch-target-min: 44px;
+  --sidebar-width: clamp(240px, 22vw, 300px);
+}
+
+/* iOS Momentum Scrolling & Smooth Behavior */
+.scrollzone {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 
 /* Touch Targets for Mobile Access */
