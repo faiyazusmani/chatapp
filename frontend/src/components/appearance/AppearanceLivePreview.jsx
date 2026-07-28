@@ -26,13 +26,15 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
         boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
       }}
     >
-      {/* Dynamic Wallpaper Background Layer */}
+      {/* Dynamic Wallpaper Background Layer (z-index 0) */}
       {activeWallpaper && (
         <div
           aria-hidden="true"
           style={{
             position: 'absolute',
             inset: 0,
+            width: '100%',
+            height: '100%',
             backgroundImage: `url(${activeWallpaper})`,
             backgroundSize: controls.fitMode === 'contain' ? 'contain' : controls.fitMode === 'fill' ? '100% 100%' : 'cover',
             backgroundPosition: 'center',
@@ -48,23 +50,25 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
         />
       )}
 
-      {/* Dynamic Overlay */}
+      {/* GPU Animated Visual Effects Layer (z-index 1) */}
+      <WallpaperEffectsLayer />
+
+      {/* Dynamic Overlay Layer (z-index 2) */}
       <div
         aria-hidden="true"
         style={{
           position: 'absolute',
           inset: 0,
+          width: '100%',
+          height: '100%',
           backgroundColor: controls.overlayColor || '#000000',
           opacity: controls.overlayOpacity ?? 0.2,
           pointerEvents: 'none',
-          zIndex: 0,
+          zIndex: 2,
         }}
       />
 
-      {/* GPU Animated Visual Effects Layer */}
-      <WallpaperEffectsLayer />
-
-      {/* Mock Header */}
+      {/* Mock Header (z-index 4) */}
       <div
         style={{
           height: 48,
@@ -75,7 +79,7 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
           alignItems: 'center',
           gap: 10,
           position: 'relative',
-          zIndex: 2,
+          zIndex: 4,
         }}
       >
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--theme-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
@@ -86,7 +90,7 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
         </div>
       </div>
 
-      {/* Mock Messages Feed */}
+      {/* Mock Messages Feed (z-index 3) */}
       <div
         className="scrollzone"
         style={{
@@ -96,7 +100,7 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
           flexDirection: 'column',
           gap: 10,
           position: 'relative',
-          zIndex: 2,
+          zIndex: 3,
           overflowY: 'auto',
         }}
       >
@@ -140,8 +144,8 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
         </div>
       </div>
 
-      {/* Mock Input Bar */}
-      <div style={{ padding: 8, background: 'var(--theme-sidebar-bg)', borderTop: '1px solid rgba(255,255,255,0.08)', position: 'relative', zIndex: 2 }}>
+      {/* Mock Input Bar (z-index 4) */}
+      <div style={{ padding: 8, background: 'var(--theme-sidebar-bg)', borderTop: '1px solid rgba(255,255,255,0.08)', position: 'relative', zIndex: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--theme-input-bg)', borderRadius: 'var(--theme-radius)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px' }}>
           <span style={{ fontSize: 12 }}>😃</span>
           <input

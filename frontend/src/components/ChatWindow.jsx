@@ -444,12 +444,54 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   const typingArray = Array.from(typingUsers);
 
   return (
-    <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--theme-chat-bg)', minWidth: 0, fontFamily: 'var(--theme-font)' }}>
+    <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--theme-chat-bg)', minWidth: 0, fontFamily: 'var(--theme-font)', position: 'relative', overflow: 'hidden' }}>
+      {/* Layer 0: Wallpaper Background Layer (position: absolute; inset: 0; z-index: 0;) */}
+      {getActiveWallpaperForRoom(roomId) && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: `url(${getActiveWallpaperForRoom(roomId)})`,
+            backgroundSize: appearanceState?.controls?.fitMode === 'contain' ? 'contain' : appearanceState?.controls?.fitMode === 'fill' ? '100% 100%' : 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            opacity: appearanceState?.controls?.opacity ?? 0.85,
+            filter: `blur(${appearanceState?.controls?.blur || 0}px) brightness(${appearanceState?.controls?.brightness || 100}%) contrast(${appearanceState?.controls?.contrast || 100}%) saturate(${appearanceState?.controls?.saturation || 100}%)`,
+            transform: `scale(${(appearanceState?.controls?.scale || 100) / 100})`,
+            transformOrigin: 'center center',
+            transition: 'all 0.15s ease',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      {/* Layer 1: GPU Animated Visual Effects Layer (position: absolute; inset: 0; z-index: 1;) */}
+      <WallpaperEffectsLayer />
+
+      {/* Layer 2: Overlay Layer (position: absolute; inset: 0; z-index: 2;) */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: appearanceState?.controls?.overlayColor || '#000000',
+          opacity: appearanceState?.controls?.overlayOpacity ?? 0.2,
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      />
+
       {/* Notifications Toast */}
       <NotificationToast notifications={notifications} onDismiss={handleDismissNotification} />
 
-      {/* Top Header Bar */}
-      <div style={{ height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
+      {/* Layer 4: Top Header Bar */}
+      <div style={{ position: 'relative', zIndex: 4, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderBottom: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
           {/* Hamburger Menu (visible only on mobile via CSS class in index.css) */}
           <button className="mobile-hamburger" onClick={onToggleMobileSidebar} title="Menu" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, display: 'none' }}>
@@ -508,45 +550,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         </div>
       </div>
 
-      {/* Messages Feed Area */}
-      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
-        {/* Dynamic Wallpaper Background Layer */}
-        {getActiveWallpaperForRoom(roomId) && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `url(${getActiveWallpaperForRoom(roomId)})`,
-              backgroundSize: appearanceState?.controls?.fitMode === 'contain' ? 'contain' : appearanceState?.controls?.fitMode === 'fill' ? '100% 100%' : 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              opacity: appearanceState?.controls?.opacity ?? 0.85,
-              filter: `blur(${appearanceState?.controls?.blur || 0}px) brightness(${appearanceState?.controls?.brightness || 100}%) contrast(${appearanceState?.controls?.contrast || 100}%) saturate(${appearanceState?.controls?.saturation || 100}%)`,
-              transform: `scale(${(appearanceState?.controls?.scale || 100) / 100})`,
-              transformOrigin: 'center center',
-              transition: 'all 0.15s ease',
-              pointerEvents: 'none',
-              zIndex: 0,
-            }}
-          />
-        )}
-
-        {/* GPU Animated Visual Effects Layer (z-index 1) */}
-        <WallpaperEffectsLayer />
-
-        {/* Overlay Layer (z-index 2) */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundColor: appearanceState?.controls?.overlayColor || '#000000',
-            opacity: appearanceState?.controls?.overlayOpacity ?? 0.2,
-            pointerEvents: 'none',
-            zIndex: 2,
-          }}
-        />
+      {/* Layer 3: Messages Feed Area (position: relative; z-index: 3; flex: 1; overflow-y: auto;) */}
+      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', zIndex: 3 }}>
         {/* History Banner */}
         <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
           There is no more history
@@ -760,8 +765,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       {/* Hidden File Input */}
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
 
-      {/* Gajim Input Toolbar & Textarea */}
-      <div style={{ padding: '10px 16px 14px', borderTop: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
+      {/* Layer 4: Gajim Input Toolbar & Textarea */}
+      <div style={{ position: 'relative', zIndex: 4, padding: '10px 16px 14px', borderTop: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
         {isRecordingVoice ? (
           <VoiceRecorder onCancel={() => setIsRecordingVoice(false)} onSend={handleSendVoiceNote} />
         ) : (
