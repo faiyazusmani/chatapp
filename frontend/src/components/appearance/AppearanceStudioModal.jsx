@@ -29,6 +29,7 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
   return (
     <>
       <div
+        className="appearance-studio-backdrop"
         style={{
           position: 'fixed',
           inset: 0,
@@ -61,30 +62,50 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
         >
           {/* Header Bar */}
           <div
+            className="studio-header"
             style={{
               padding: '14px 20px',
               borderBottom: '1px solid #282c37',
               display: 'flex',
-              justify: 'space-between',
+              justifyContent: 'space-between',
               alignItems: 'center',
               background: '#13151c',
+              flexWrap: 'wrap',
+              gap: 10,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={onClose}
+                className="touch-btn"
+                title="Back"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#38bdf8',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  padding: '0 8px',
+                }}
+              >
+                ❮
+              </button>
               <span style={{ fontSize: 20 }}>✨</span>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
+                <div style={{ fontSize: 'var(--font-clamp-title, 16px)', fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
                   Appearance Studio
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                <div style={{ fontSize: 'var(--font-clamp-small, 11px)', color: '#9ca3af' }}>
                   Personalize themes, wallpapers, 60 FPS effects & sounds for your UI only.
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 onClick={() => setShowShareModal(true)}
+                className="touch-btn"
                 style={{
                   background: '#222530',
                   border: '1px solid #2d3241',
@@ -103,6 +124,7 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
               </button>
               <button
                 onClick={resetAppearance}
+                className="touch-btn"
                 title="Reset to Default Appearance"
                 style={{
                   background: 'transparent',
@@ -118,13 +140,14 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
               </button>
               <button
                 onClick={onClose}
+                className="touch-btn"
                 style={{
                   background: 'transparent',
                   border: 'none',
                   color: '#9ca3af',
-                  fontSize: 20,
+                  fontSize: 22,
                   cursor: 'pointer',
-                  padding: '0 4px',
+                  padding: '0 8px',
                 }}
               >
                 &times;
@@ -134,24 +157,26 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
 
           {/* Navigation Tabs */}
           <div
-            className="scrollzone"
+            className="scrollzone studio-tabs"
             style={{
               display: 'flex',
-              gap: 4,
+              gap: 6,
               padding: '8px 16px',
               background: '#101218',
               borderBottom: '1px solid #282c37',
               overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                className="touch-btn"
                 style={{
-                  padding: '6px 14px',
+                  padding: '8px 16px',
                   borderRadius: 8,
-                  fontSize: 12,
+                  fontSize: 'var(--font-clamp-body, 12px)',
                   fontWeight: 600,
                   cursor: 'pointer',
                   border: 'none',
@@ -159,6 +184,7 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
                   color: activeTab === tab.id ? '#fff' : '#9ca3af',
                   transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {tab.label}
@@ -166,18 +192,19 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
             ))}
           </div>
 
-          {/* Main Content Area (Split View: Left Controls / Right Live Preview) */}
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: 16, gap: 16 }}>
-            {/* Left Controls Pane */}
+          {/* Main Content Area (Split View / Mobile Stacked) */}
+          <div className="studio-content-layout" style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: 16, gap: 16 }}>
+            {/* Controls Pane */}
             <div className="scrollzone" style={{ flex: 1.2, overflowY: 'auto', paddingRight: 4 }}>
               {activeTab === 'themes' && <ThemeGallery />}
               {activeTab === 'wallpapers' && <WallpaperEditor />}
               {activeTab === 'effects' && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+                <div className="responsive-grid-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
                   {VISUAL_EFFECTS.map((eff) => (
                     <div
                       key={eff.id}
                       onClick={() => setActiveEffect(eff.id)}
+                      className="touch-btn"
                       style={{
                         padding: 12,
                         borderRadius: 10,
@@ -187,8 +214,10 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: 6,
                         textAlign: 'center',
+                        minHeight: 64,
                       }}
                     >
                       <span style={{ fontSize: 24 }}>{eff.icon}</span>

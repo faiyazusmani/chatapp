@@ -87,9 +87,10 @@ export default function WallpaperEditor() {
       {/* Preset Curated Wallpapers */}
       <div>
         <div style={{ fontSize: 12, fontWeight: 700, color: '#e5e7eb', marginBottom: 8 }}>Curated Wallpapers</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        <div className="responsive-grid-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
           <div
             onClick={() => setGlobalWallpaper('')}
+            className="touch-btn"
             style={{
               height: 50,
               borderRadius: 8,
@@ -109,6 +110,7 @@ export default function WallpaperEditor() {
             <div
               key={wp.url}
               onClick={() => setGlobalWallpaper(wp.url)}
+              className="touch-btn"
               style={{
                 height: 50,
                 borderRadius: 8,

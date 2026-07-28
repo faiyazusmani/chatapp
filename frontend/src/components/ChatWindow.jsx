@@ -512,9 +512,10 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <button
             onClick={() => setIsStudioOpen(true)}
+            className="touch-btn"
             title="Chat Personality Studio"
             style={{
               background: 'rgba(124, 58, 237, 0.2)',
@@ -532,19 +533,19 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           >
             ✨ Studio
           </button>
-          <button onClick={handleStartVoiceCall} title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={handleStartVoiceCall} className="touch-btn" title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
             📞 Voice
           </button>
-          <button onClick={handleStartVideoCall} title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={handleStartVideoCall} className="touch-btn" title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
             📹 Video
           </button>
-          <button title="Share Link" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+          <button title="Share Link" className="touch-btn" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
             🔗
           </button>
-          <button title="Search Chat" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+          <button title="Search Chat" className="touch-btn" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
             🔍
           </button>
-          <button onClick={() => onLeaveRoom(roomId)} title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 6 }}>
+          <button onClick={() => onLeaveRoom(roomId)} className="touch-btn" title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 6 }}>
             🚪
           </button>
         </div>

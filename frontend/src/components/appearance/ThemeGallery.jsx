@@ -16,15 +16,16 @@ export default function ThemeGallery() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Category Pills */}
-      <div className="scrollzone" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+      <div className="scrollzone" style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setFilterCategory(cat)}
+            className="touch-btn"
             style={{
-              padding: '5px 12px',
+              padding: '6px 14px',
               borderRadius: 20,
-              fontSize: 11,
+              fontSize: 'var(--font-clamp-small, 11px)',
               fontWeight: 600,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
@@ -32,6 +33,7 @@ export default function ThemeGallery() {
               background: filterCategory === cat ? 'var(--theme-primary)' : '#1a1d25',
               color: filterCategory === cat ? '#fff' : '#9ca3af',
               transition: 'all 0.15s ease',
+              flexShrink: 0,
             }}
           >
             {cat}
@@ -40,7 +42,7 @@ export default function ThemeGallery() {
       </div>
 
       {/* Grid of Theme Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+      <div className="responsive-grid-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
         {filteredThemes.map((themeItem) => (
           <ThemeCard
             key={themeItem.id}
