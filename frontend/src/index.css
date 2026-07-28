@@ -1788,6 +1788,40 @@ body.personality-gaming .msg-bubble {
   display: block;
 }
 
+/* ============================================================
+   CALL MODALS RESPONSIVENESS & LANDSCAPE ORIENTATION
+   ============================================================ */
+.call-modal-container {
+  width: min(95vw, 640px) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
+@media (max-width: 640px) {
+  .call-controls-bar {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    padding: 10px 8px !important;
+  }
+  .call-controls-bar button {
+    min-height: 44px !important;
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+    flex: 1 1 auto !important;
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .appearance-studio-modal,
+  .gajim-sidebar-container {
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+  .studio-content-layout {
+    flex-direction: row !important;
+  }
+}
+
 @media (max-width: 767px) {
   .scrollzone {
     padding: 10px 12px !important;
