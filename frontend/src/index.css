@@ -1621,9 +1621,12 @@ body.personality-gaming .msg-bubble {
   }
 }
 
-/* Desktop Pixel Perfect (>= 1024px) */
-@media (min-width: 1024px) {
-  .responsive-grid-gallery {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+@media (max-width: 640px) {
+  .header-actions .btn-label {
+    display: none !important;
+  }
+  .header-actions {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
   }
 }
