@@ -9,13 +9,13 @@ export default function ThemeCard({ themeItem, isActive, onSelect }) {
       onClick={() => onSelect(id)}
       style={{
         background: theme.chatBg,
-        border: isActive ? `2px solid ${theme.primaryColor}` : '1px solid #2d3241',
-        borderRadius: theme.borderRadius || '12px',
-        padding: '12px',
+        border: isActive ? `2px solid ${theme.primaryColor}` : '1px solid var(--color-border-dark)',
+        borderRadius: theme.borderRadius || 'var(--radius-md)',
+        padding: 'var(--space-md)',
         cursor: 'pointer',
         position: 'relative',
-        transition: 'all 0.2s ease',
-        boxShadow: isActive ? `0 0 16px ${theme.primaryColor}40` : '0 4px 12px rgba(0,0,0,0.2)',
+        transition: 'all var(--transition-smooth)',
+        boxShadow: isActive ? `0 0 16px ${theme.primaryColor}40` : 'var(--shadow-sm)',
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
@@ -23,11 +23,11 @@ export default function ThemeCard({ themeItem, isActive, onSelect }) {
     >
       {/* Category Badge & Active Check */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 10, color: theme.isLight ? '#475569' : '#9ca3af', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.5 }}>
+        <span style={{ fontSize: 'var(--font-2xs)', color: theme.isLight ? '#475569' : 'var(--color-text-faint)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.5 }}>
           {category}
         </span>
         {isActive && (
-          <span style={{ background: theme.primaryColor, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>
+          <span style={{ background: theme.primaryColor, color: 'var(--color-white)', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--font-2xs)', fontWeight: 800 }}>
             ✓
           </span>
         )}
@@ -36,7 +36,7 @@ export default function ThemeCard({ themeItem, isActive, onSelect }) {
       {/* Title & Icon */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 20 }}>{icon}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: theme.isLight ? '#0f172a' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: theme.isLight ? '#0f172a' : 'var(--color-text-primary, var(--color-text))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {name}
         </span>
       </div>

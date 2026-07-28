@@ -34,7 +34,7 @@ export default function Navbar() {
                 <img
                   src={user.avatar}
                   alt={user.username}
-                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#334155' }}
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--color-slate)' }}
                 />
               )}
               <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user?.username}</span>
@@ -46,7 +46,7 @@ export default function Navbar() {
                 color: 'var(--text-muted)',
                 border: '1px solid var(--border)',
                 padding: '0.4rem 0.8rem',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-xs)',
                 fontSize: '0.85rem'
               }}
               onMouseEnter={(e) => e.target.style.color = 'var(--error)'}
@@ -60,9 +60,9 @@ export default function Navbar() {
             <Link to="/login">Login</Link>
             <Link to="/register" style={{
               backgroundColor: 'var(--primary)',
-              color: '#fff',
+              color: 'var(--color-white)',
               padding: '0.4rem 0.9rem',
-              borderRadius: '6px',
+              borderRadius: 'var(--radius-xs)',
               textDecoration: 'none',
               fontWeight: 500
             }}>

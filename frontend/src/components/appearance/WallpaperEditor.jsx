@@ -2,6 +2,18 @@ import React, { useState, useRef } from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 import api from '../../services/api';
 
+/* Shared style objects — all values from Design System tokens */
+const S = {
+  sliderLabel: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--color-text-faint)' },
+  adjustCard: {
+    display: 'flex', flexDirection: 'column', gap: 10,
+    background: 'var(--color-bg-deep)',
+    padding: 'var(--space-md)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border-subtle)',
+  },
+};
+
 export default function WallpaperEditor() {
   const { appearanceState, setGlobalWallpaper, updateControls, addCustomWallpaper } = useAppearance();
   const [uploading, setUploading] = useState(false);
@@ -60,14 +72,14 @@ export default function WallpaperEditor() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
       {/* Upload Drag & Drop Box */}
       <div
         onClick={() => fileInputRef.current?.click()}
         style={{
-          border: '2px dashed #3b82f6',
-          borderRadius: 12,
-          padding: '16px',
+          border: '2px dashed var(--color-blue)',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-lg)',
           textAlign: 'center',
           background: 'rgba(59, 130, 246, 0.08)',
           cursor: 'pointer',
@@ -75,32 +87,32 @@ export default function WallpaperEditor() {
       >
         <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/*" />
         <div style={{ fontSize: 24 }}>🖼️</div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#f3f4f6', marginTop: 4 }}>
+        <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-bright)', marginTop: 4 }}>
           {uploading ? '⏳ Uploading Wallpaper...' : 'Click to Upload Custom Wallpaper'}
         </div>
-        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-text-faint)', marginTop: 2 }}>
           Supports JPG, PNG, WEBP, AVIF (Max 10MB)
         </div>
-        {errorMsg && <div style={{ fontSize: 11, color: '#ef4444', marginTop: 6 }}>{errorMsg}</div>}
+        {errorMsg && <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 6 }}>{errorMsg}</div>}
       </div>
 
       {/* Preset Curated Wallpapers */}
       <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#e5e7eb', marginBottom: 8 }}>Curated Wallpapers</div>
+        <div style={{ fontSize: 'var(--font-sm)', fontWeight: 700, color: 'var(--color-text-soft)', marginBottom: 'var(--space-sm)' }}>Curated Wallpapers</div>
         <div className="responsive-grid-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
           <div
             onClick={() => setGlobalWallpaper('')}
             className="touch-btn"
             style={{
               height: 50,
-              borderRadius: 8,
-              background: '#1a1d25',
-              border: appearanceState.globalWallpaperUrl === '' ? '2px solid var(--theme-primary)' : '1px solid #2d3241',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-bg-input)',
+              border: appearanceState.globalWallpaperUrl === '' ? '2px solid var(--theme-primary)' : '1px solid var(--color-border-dark)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 11,
-              color: '#9ca3af',
+              fontSize: 'var(--font-xs)',
+              color: 'var(--color-text-faint)',
               cursor: 'pointer',
             }}
           >
@@ -113,11 +125,11 @@ export default function WallpaperEditor() {
               className="touch-btn"
               style={{
                 height: 50,
-                borderRadius: 8,
+                borderRadius: 'var(--radius-sm)',
                 backgroundImage: `url(${wp.url})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                border: appearanceState.globalWallpaperUrl === wp.url ? '2px solid var(--theme-primary)' : '1px solid #2d3241',
+                border: appearanceState.globalWallpaperUrl === wp.url ? '2px solid var(--theme-primary)' : '1px solid var(--color-border-dark)',
                 cursor: 'pointer',
               }}
               title={wp.name}
@@ -127,11 +139,11 @@ export default function WallpaperEditor() {
       </div>
 
       {/* Controls Sliders */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, background: '#13151c', padding: 12, borderRadius: 12, border: '1px solid #282c37' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#e5e7eb' }}>Wallpaper Adjustments</div>
+      <div style={S.adjustCard}>
+        <div style={{ fontSize: 'var(--font-sm)', fontWeight: 700, color: 'var(--color-text-soft)' }}>Wallpaper Adjustments</div>
 
         {/* Opacity */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+        <div style={S.sliderLabel}>
           <span>Opacity</span>
           <span>{Math.round((controls.opacity ?? 0.85) * 100)}%</span>
         </div>
@@ -145,7 +157,7 @@ export default function WallpaperEditor() {
         />
 
         {/* Blur */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+        <div style={S.sliderLabel}>
           <span>Blur</span>
           <span>{controls.blur ?? 0}px</span>
         </div>
@@ -159,7 +171,7 @@ export default function WallpaperEditor() {
         />
 
         {/* Brightness */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+        <div style={S.sliderLabel}>
           <span>Brightness</span>
           <span>{controls.brightness ?? 100}%</span>
         </div>
@@ -173,7 +185,7 @@ export default function WallpaperEditor() {
         />
 
         {/* Scale */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+        <div style={S.sliderLabel}>
           <span>Zoom / Scale</span>
           <span>{controls.scale ?? 100}%</span>
         </div>
@@ -187,12 +199,19 @@ export default function WallpaperEditor() {
         />
 
         {/* Fit Mode */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-xs)', color: 'var(--color-text-faint)', marginTop: 4 }}>
           <span>Fit Mode</span>
           <select
             value={controls.fitMode ?? 'cover'}
             onChange={(e) => updateControls({ fitMode: e.target.value })}
-            style={{ background: '#222530', color: '#fff', border: '1px solid #2d3241', borderRadius: 6, padding: '3px 8px', fontSize: 11 }}
+            style={{
+              background: 'var(--color-bg-elevated)',
+              color: 'var(--color-white)',
+              border: '1px solid var(--color-border-dark)',
+              borderRadius: 'var(--radius-xs)',
+              padding: 'var(--space-3xs) var(--space-sm)',
+              fontSize: 'var(--font-xs)',
+            }}
           >
             <option value="cover">Cover</option>
             <option value="contain">Contain</option>

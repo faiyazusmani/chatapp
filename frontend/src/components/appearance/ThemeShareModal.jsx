@@ -54,8 +54,8 @@ export default function ThemeShareModal({ isOpen, onClose }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 3000,
-        padding: 16,
+        zIndex: 'var(--z-dropdown)',
+        padding: 'var(--space-lg)',
       }}
       onClick={onClose}
     >
@@ -64,32 +64,32 @@ export default function ThemeShareModal({ isOpen, onClose }) {
         style={{
           width: '100%',
           maxWidth: 480,
-          background: '#161921',
-          border: '1px solid #2d3241',
-          borderRadius: 16,
-          padding: 20,
+          background: 'var(--color-bg-card)',
+          border: '1px solid var(--color-border-dark)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--space-xl)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
-          boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+          gap: 'var(--space-lg)',
+          boxShadow: 'var(--shadow-xl)',
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>📤</span> Export & Import Theme
+          <div style={{ fontSize: 'var(--font-xl)', fontWeight: 700, color: 'var(--color-white)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>📤</span> Export &amp; Import Theme
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-faint)', fontSize: 18, cursor: 'pointer' }}>
             &times;
           </button>
         </div>
 
         {/* QR Code Section */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, background: '#101218', padding: 12, borderRadius: 12, border: '1px solid #222530' }}>
-          <canvas ref={qrCanvasRef} style={{ width: 100, height: 100, borderRadius: 8, flexShrink: 0 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)', background: 'var(--color-bg-surface)', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-bg-elevated)' }}>
+          <canvas ref={qrCanvasRef} style={{ width: 100, height: 100, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#f3f4f6' }}>Scan QR Code</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+            <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-bright)' }}>Scan QR Code</div>
+            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-text-faint)', marginTop: 2 }}>
               Share this theme visually with another mobile or desktop user.
             </div>
             <button
@@ -97,11 +97,11 @@ export default function ThemeShareModal({ isOpen, onClose }) {
               style={{
                 marginTop: 8,
                 background: 'var(--theme-primary)',
-                color: '#fff',
+                color: 'var(--color-white)',
                 border: 'none',
-                borderRadius: 6,
-                padding: '4px 10px',
-                fontSize: 11,
+                borderRadius: 'var(--radius-xs)',
+                padding: 'var(--space-2xs) var(--space-md)',
+                fontSize: 'var(--font-xs)',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
@@ -112,8 +112,8 @@ export default function ThemeShareModal({ isOpen, onClose }) {
         </div>
 
         {/* Import Section */}
-        <form onSubmit={handleImport} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#e5e7eb' }}>Import Theme JSON</div>
+        <form onSubmit={handleImport} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+          <div style={{ fontSize: 'var(--font-sm)', fontWeight: 700, color: 'var(--color-text-soft)' }}>Import Theme JSON</div>
           <textarea
             rows={3}
             placeholder="Paste theme JSON payload string here..."
@@ -121,32 +121,32 @@ export default function ThemeShareModal({ isOpen, onClose }) {
             onChange={(e) => setImportJson(e.target.value)}
             style={{
               width: '100%',
-              background: '#0d0e11',
-              border: '1px solid #2d3241',
-              borderRadius: 8,
-              padding: 8,
-              color: '#4ade80',
+              background: 'var(--color-bg-window)',
+              border: '1px solid var(--color-border-dark)',
+              borderRadius: 'var(--radius-sm)',
+              padding: 'var(--space-sm)',
+              color: 'var(--color-green-bright)',
               fontFamily: 'monospace',
-              fontSize: 11,
+              fontSize: 'var(--font-xs)',
               outline: 'none',
             }}
           />
-          {importError && <div style={{ fontSize: 11, color: '#ef4444' }}>{importError}</div>}
+          {importError && <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)' }}>{importError}</div>}
 
           <button
             type="submit"
             style={{
-              background: '#22c55e',
-              color: '#fff',
+              background: 'var(--color-success)',
+              color: 'var(--color-white)',
               border: 'none',
-              borderRadius: 8,
-              padding: '8px 12px',
-              fontSize: 12,
+              borderRadius: 'var(--radius-sm)',
+              padding: 'var(--space-sm) var(--space-md)',
+              fontSize: 'var(--font-sm)',
               fontWeight: 600,
               cursor: 'pointer',
             }}
           >
-            📥 Import & Apply Theme
+            📥 Import &amp; Apply Theme
           </button>
         </form>
       </div>

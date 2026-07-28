@@ -2,17 +2,48 @@ import React from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 import { themeSoundManager } from '../../utils/themeSoundManager';
 
+/* Shared inline style objects — all values from Design System tokens */
+const S = {
+  card: {
+    display: 'flex', flexDirection: 'column', gap: 14,
+    background: 'var(--color-bg-deep)',
+    padding: 14,
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border-subtle)',
+  },
+  cardTitle: { fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-bright)' },
+  subRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    fontSize: 'var(--font-sm)', color: 'var(--color-text-faint)',
+  },
+  innerGroup: { display: 'flex', alignItems: 'center', gap: 8 },
+  testBtn: {
+    background: 'var(--color-bg-elevated)',
+    border: '1px solid var(--color-border-dark)',
+    color: 'var(--color-blue)',
+    borderRadius: 'var(--radius-2xs)',
+    padding: 'var(--space-3xs) var(--space-sm)',
+    fontSize: 'var(--font-2xs)',
+    cursor: 'pointer',
+  },
+  subSection: {
+    paddingTop: 8,
+    borderTop: '1px solid var(--color-bg-elevated)',
+    display: 'flex', flexDirection: 'column', gap: 10,
+  },
+};
+
 export default function SoundControls() {
   const { appearanceState, updateSoundControls } = useAppearance();
 
   const snd = appearanceState.soundControls || {};
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#13151c', padding: 14, borderRadius: 12, border: '1px solid #282c37' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#f3f4f6' }}>🔊 Theme Sound Effects</div>
+    <div style={S.card}>
+      <div style={S.cardTitle}>🔊 Theme Sound Effects</div>
 
       {/* Main Enable Sounds Toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#e5e7eb', cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--font-sm)', color: 'var(--color-text-soft)', cursor: 'pointer' }}>
         <span style={{ fontWeight: 600 }}>Enable UI Sounds</span>
         <input
           type="checkbox"
@@ -23,17 +54,12 @@ export default function SoundControls() {
       </label>
 
       {/* Sub-toggles & sound tests */}
-      <div style={{ opacity: snd.enableSounds ? 1 : 0.4, pointerEvents: snd.enableSounds ? 'auto' : 'none', display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8, borderTop: '1px solid #222530' }}>
+      <div style={{ opacity: snd.enableSounds ? 1 : 0.4, pointerEvents: snd.enableSounds ? 'auto' : 'none', ...S.subSection }}>
         {/* Sent Sound */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#9ca3af' }}>
+        <div style={S.subRow}>
           <span>Message Sent Sound</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => themeSoundManager.playSentSound()}
-              style={{ background: '#222530', border: '1px solid #2d3241', color: '#38bdf8', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }}
-            >
-              ▶ Test
-            </button>
+          <div style={S.innerGroup}>
+            <button onClick={() => themeSoundManager.playSentSound()} style={S.testBtn}>▶ Test</button>
             <input
               type="checkbox"
               checked={!!snd.enableSentSound}
@@ -44,15 +70,10 @@ export default function SoundControls() {
         </div>
 
         {/* Typing Sound */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#9ca3af' }}>
+        <div style={S.subRow}>
           <span>Typing Tick Sound</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => themeSoundManager.playTypingSound()}
-              style={{ background: '#222530', border: '1px solid #2d3241', color: '#38bdf8', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }}
-            >
-              ▶ Test
-            </button>
+          <div style={S.innerGroup}>
+            <button onClick={() => themeSoundManager.playTypingSound()} style={S.testBtn}>▶ Test</button>
             <input
               type="checkbox"
               checked={!!snd.enableTypingSound}
@@ -63,15 +84,10 @@ export default function SoundControls() {
         </div>
 
         {/* Notification Sound */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#9ca3af' }}>
+        <div style={S.subRow}>
           <span>Notification Chime</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={() => themeSoundManager.playNotificationSound()}
-              style={{ background: '#222530', border: '1px solid #2d3241', color: '#38bdf8', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }}
-            >
-              ▶ Test
-            </button>
+          <div style={S.innerGroup}>
+            <button onClick={() => themeSoundManager.playNotificationSound()} style={S.testBtn}>▶ Test</button>
             <input
               type="checkbox"
               checked={!!snd.enableNotificationSound}

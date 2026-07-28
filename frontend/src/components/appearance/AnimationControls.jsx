@@ -1,18 +1,38 @@
 import React from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 
+/* Shared inline style objects — all values from Design System tokens */
+const S = {
+  card: {
+    display: 'flex', flexDirection: 'column', gap: 14,
+    background: 'var(--color-bg-deep)',
+    padding: 14,
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-border-subtle)',
+  },
+  cardTitle: { fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-bright)' },
+  sliderRow: { display: 'flex', flexDirection: 'column', gap: 4 },
+  sliderLabel: { display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--color-text-faint)' },
+  toggle: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    fontSize: 'var(--font-sm)', color: 'var(--color-text-soft)', cursor: 'pointer',
+    paddingTop: 6, borderTop: '1px solid var(--color-bg-elevated)',
+  },
+  hint: { fontSize: 'var(--font-xs)', color: 'var(--color-text-ghost)', marginTop: -8 },
+};
+
 export default function AnimationControls() {
   const { appearanceState, updateAnimationControls } = useAppearance();
 
   const anim = appearanceState.animationControls || {};
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: '#13151c', padding: 14, borderRadius: 12, border: '1px solid #282c37' }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#f3f4f6' }}>⚡ Animation & Performance Controls</div>
+    <div style={S.card}>
+      <div style={S.cardTitle}>⚡ Animation &amp; Performance Controls</div>
 
       {/* Speed Slider */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+      <div style={S.sliderRow}>
+        <div style={S.sliderLabel}>
           <span>Animation Speed</span>
           <span>{anim.speed ?? 1}x</span>
         </div>
@@ -27,8 +47,8 @@ export default function AnimationControls() {
       </div>
 
       {/* Density Slider */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+      <div style={S.sliderRow}>
+        <div style={S.sliderLabel}>
           <span>Particle Density</span>
           <span>{Math.round((anim.density ?? 1) * 100)}%</span>
         </div>
@@ -43,7 +63,7 @@ export default function AnimationControls() {
       </div>
 
       {/* Battery Saver Toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#e5e7eb', cursor: 'pointer', paddingTop: 6, borderTop: '1px solid #222530' }}>
+      <label style={S.toggle}>
         <span>🔋 Battery Saver Mode</span>
         <input
           type="checkbox"
@@ -52,12 +72,12 @@ export default function AnimationControls() {
           style={{ width: 16, height: 16, accentColor: 'var(--theme-primary)' }}
         />
       </label>
-      <div style={{ fontSize: 11, color: '#6b7280', marginTop: -8 }}>
+      <div style={S.hint}>
         Reduces particle refresh rate and limits canvas draw calls.
       </div>
 
       {/* Reduce Motion Toggle */}
-      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#e5e7eb', cursor: 'pointer', paddingTop: 6, borderTop: '1px solid #222530' }}>
+      <label style={S.toggle}>
         <span>♿ Reduce Motion Mode</span>
         <input
           type="checkbox"
@@ -66,7 +86,7 @@ export default function AnimationControls() {
           style={{ width: 16, height: 16, accentColor: 'var(--theme-primary)' }}
         />
       </label>
-      <div style={{ fontSize: 11, color: '#6b7280', marginTop: -8 }}>
+      <div style={S.hint}>
         Disables ambient canvas particles for accessibility compliance.
       </div>
     </div>

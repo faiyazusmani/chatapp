@@ -23,16 +23,16 @@ export default function ThemeGallery() {
             onClick={() => setFilterCategory(cat)}
             className="touch-btn"
             style={{
-              padding: '6px 14px',
-              borderRadius: 20,
+              padding: 'var(--space-xs) 14px',
+              borderRadius: 'var(--radius-full)',
               fontSize: 'var(--font-clamp-small, 11px)',
               fontWeight: 600,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              border: filterCategory === cat ? '1px solid var(--theme-primary)' : '1px solid #2d3241',
-              background: filterCategory === cat ? 'var(--theme-primary)' : '#1a1d25',
-              color: filterCategory === cat ? '#fff' : '#9ca3af',
-              transition: 'all 0.15s ease',
+              border: filterCategory === cat ? '1px solid var(--theme-primary)' : '1px solid var(--color-border-dark)',
+              background: filterCategory === cat ? 'var(--theme-primary)' : 'var(--color-bg-input)',
+              color: filterCategory === cat ? 'var(--color-white)' : 'var(--color-text-faint)',
+              transition: 'all var(--transition-fast)',
               flexShrink: 0,
             }}
           >
