@@ -518,12 +518,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
               position: 'absolute',
               inset: 0,
               backgroundImage: `url(${getActiveWallpaperForRoom(roomId)})`,
-              backgroundSize: personalityState?.controls?.fitMode === 'contain' ? 'contain' : personalityState?.controls?.fitMode === 'fill' ? '100% 100%' : 'cover',
+              backgroundSize: appearanceState?.controls?.fitMode === 'contain' ? 'contain' : appearanceState?.controls?.fitMode === 'fill' ? '100% 100%' : 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              opacity: personalityState?.controls?.opacity ?? 0.85,
-              filter: `blur(${personalityState?.controls?.blur || 0}px) brightness(${personalityState?.controls?.brightness || 100}%) contrast(${personalityState?.controls?.contrast || 100}%) saturate(${personalityState?.controls?.saturation || 100}%)`,
-              transform: `scale(${(personalityState?.controls?.scale || 100) / 100})`,
+              opacity: appearanceState?.controls?.opacity ?? 0.85,
+              filter: `blur(${appearanceState?.controls?.blur || 0}px) brightness(${appearanceState?.controls?.brightness || 100}%) contrast(${appearanceState?.controls?.contrast || 100}%) saturate(${appearanceState?.controls?.saturation || 100}%)`,
+              transform: `scale(${(appearanceState?.controls?.scale || 100) / 100})`,
               transformOrigin: 'center center',
               transition: 'all 0.15s ease',
               pointerEvents: 'none',
@@ -532,22 +532,21 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           />
         )}
 
-        {/* Overlay Layer */}
+        {/* GPU Animated Visual Effects Layer (z-index 1) */}
+        <WallpaperEffectsLayer />
+
+        {/* Overlay Layer (z-index 2) */}
         <div
           aria-hidden="true"
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundColor: personalityState?.controls?.overlayColor || '#000000',
-            opacity: personalityState?.controls?.overlayOpacity ?? 0.2,
+            backgroundColor: appearanceState?.controls?.overlayColor || '#000000',
+            opacity: appearanceState?.controls?.overlayOpacity ?? 0.2,
             pointerEvents: 'none',
-            zIndex: 0,
+            zIndex: 2,
           }}
         />
-
-        {/* GPU Animated Visual Effects Layer */}
-        <WallpaperEffectsLayer />
-        <AnimatedBackgroundLayer />
         {/* History Banner */}
         <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
           There is no more history
