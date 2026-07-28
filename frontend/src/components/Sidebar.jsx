@@ -5,6 +5,7 @@ import UserProfileModal from './profile/UserProfileModal';
 import StatusPickerModal from './profile/StatusPickerModal';
 import ThemeSettingsModal from './profile/ThemeSettingsModal';
 import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
+import AppearanceStudioModal from './appearance/AppearanceStudioModal';
 
 export default function Sidebar({
   activeTab = 'chats',
@@ -558,7 +559,7 @@ export default function Sidebar({
         <ThemeSettingsModal onClose={() => setShowThemeSettings(false)} />
       )}
 
-      <ChatPersonalityStudioModal
+      <AppearanceStudioModal
         isOpen={showPersonalityStudio}
         onClose={() => setShowPersonalityStudio(false)}
       />

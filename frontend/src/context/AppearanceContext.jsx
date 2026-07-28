@@ -1,0 +1,324 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import { useAuth } from './useAuth';
+import { BUILTIN_THEMES, VISUAL_EFFECTS, getThemeById } from '../config/appearanceConfig';
+
+const AppearanceContext = createContext();
+
+export const useAppearance = () => {
+  const context = useContext(AppearanceContext);
+  if (!context) {
+    throw new Error('useAppearance must be used within an AppearanceProvider');
+  }
+  return context;
+};
+
+const defaultControls = {
+  opacity: 0.85,
+  blur: 0,
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+  scale: 100,
+  fitMode: 'cover',
+  overlayColor: '#000000',
+  overlayOpacity: 0.2,
+};
+
+const defaultAnimationControls = {
+  speed: 1,
+  density: 1,
+  size: 1,
+  batterySaver: false,
+  reduceMotion: false,
+};
+
+const defaultSoundControls = {
+  enableSounds: true,
+  enableTypingSound: true,
+  enableNotificationSound: true,
+  enableSentSound: true,
+};
+
+const defaultAppearanceState = {
+  activeThemeId: 'galaxy',
+  activeEffectId: 'stars',
+  globalWallpaperUrl: '',
+  customWallpapers: [],
+  perChatWallpapers: {},
+  savedCustomThemes: [],
+  controls: defaultControls,
+  animationControls: defaultAnimationControls,
+  soundControls: defaultSoundControls,
+};
+
+export const AppearanceProvider = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  const [appearanceState, setAppearanceState] = useState(() => {
+    const saved = localStorage.getItem('appearance_studio_v2');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultAppearanceState,
+          ...parsed,
+          controls: { ...defaultControls, ...(parsed.controls || {}) },
+          animationControls: { ...defaultAnimationControls, ...(parsed.animationControls || {}) },
+          soundControls: { ...defaultSoundControls, ...(parsed.soundControls || {}) },
+        };
+      } catch (e) {
+        return defaultAppearanceState;
+      }
+    }
+    return defaultAppearanceState;
+  });
+
+  // Sync with MongoDB user.personality if available
+  useEffect(() => {
+    if (isAuthenticated && user?.personality) {
+      const merged = {
+        ...defaultAppearanceState,
+        ...user.personality,
+        controls: { ...defaultControls, ...(user.personality.controls || {}) },
+        animationControls: { ...defaultAnimationControls, ...(user.personality.animationControls || {}) },
+        soundControls: { ...defaultSoundControls, ...(user.personality.soundControls || {}) },
+      };
+      setAppearanceState(merged);
+      localStorage.setItem('appearance_studio_v2', JSON.stringify(merged));
+    }
+  }, [user, isAuthenticated]);
+
+  // Dynamic CSS Variables & WCAG Contrast Safeguard
+  useEffect(() => {
+    const root = document.documentElement;
+    const activeTheme = getThemeById(appearanceState.activeThemeId);
+    const theme = activeTheme.theme;
+
+    // Detect light theme or bright background
+    const isLight = theme.isLight || (theme.chatBg && (theme.chatBg.startsWith('#f') || theme.chatBg.includes('253') || theme.chatBg.includes('245')));
+    const textColor = theme.textColor || (isLight ? '#0f172a' : '#f8fafc');
+    const textMuted = theme.textMuted || (isLight ? '#475569' : '#94a3b8');
+    const senderColor = theme.senderColor || (isLight ? '#2563eb' : '#60a5fa');
+    const headerText = theme.headerText || (isLight ? '#0f172a' : '#f8fafc');
+
+    root.style.setProperty('--theme-primary', theme.primaryColor);
+    root.style.setProperty('--theme-msg-in-bg', theme.msgIncomingBg);
+    root.style.setProperty('--theme-msg-in-text', theme.msgIncomingText || (isLight ? '#0f172a' : '#e2e8f0'));
+    root.style.setProperty('--theme-msg-out-bg', theme.msgOutgoingBg);
+    root.style.setProperty('--theme-msg-out-text', theme.msgOutgoingText || '#ffffff');
+    root.style.setProperty('--theme-chat-bg', theme.chatBg);
+    root.style.setProperty('--theme-sidebar-bg', theme.sidebarBg);
+    root.style.setProperty('--theme-header-bg', theme.headerBg || theme.sidebarBg);
+    root.style.setProperty('--theme-input-bg', theme.inputBg || (isLight ? '#ffffff' : '#222530'));
+    root.style.setProperty('--theme-radius', theme.borderRadius);
+    root.style.setProperty('--theme-font', theme.fontFamily);
+    root.style.setProperty('--theme-accent-glow', theme.accentGlow || 'none');
+
+    // Text Contrast & Accessibility Tokens
+    root.style.setProperty('--theme-text-color', textColor);
+    root.style.setProperty('--theme-text-muted', textMuted);
+    root.style.setProperty('--theme-sender-color', senderColor);
+    root.style.setProperty('--theme-header-text', headerText);
+    root.style.setProperty('--theme-bubble-border', isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(255,255,255,0.08)');
+    root.style.setProperty('--theme-bubble-shadow', isLight ? '0 2px 10px rgba(0,0,0,0.08)' : '0 2px 10px rgba(0,0,0,0.35)');
+
+    // Wallpaper Controls
+    const controls = appearanceState.controls || defaultControls;
+    root.style.setProperty('--wallpaper-opacity', controls.opacity);
+    root.style.setProperty('--wallpaper-blur', `${controls.blur}px`);
+    root.style.setProperty('--wallpaper-brightness', `${controls.brightness}%`);
+    root.style.setProperty('--wallpaper-contrast', `${controls.contrast}%`);
+    root.style.setProperty('--wallpaper-saturation', `${controls.saturation}%`);
+    root.style.setProperty('--wallpaper-scale', `${controls.scale / 100}`);
+    root.style.setProperty('--wallpaper-fit-mode', controls.fitMode);
+    root.style.setProperty('--wallpaper-overlay-color', controls.overlayColor);
+    root.style.setProperty('--wallpaper-overlay-opacity', controls.overlayOpacity);
+
+    // Apply Theme Class
+    document.body.className = '';
+    document.body.classList.add(`theme-${appearanceState.activeThemeId}`);
+    if (isLight) document.body.classList.add('theme-light');
+  }, [appearanceState]);
+
+  // Persist Appearance State
+  const updateAppearanceSettings = useCallback(
+    async (updates) => {
+      setAppearanceState((prev) => {
+        const nextState = {
+          ...prev,
+          ...updates,
+          controls: { ...(prev.controls || defaultControls), ...(updates.controls || {}) },
+          animationControls: { ...(prev.animationControls || defaultAnimationControls), ...(updates.animationControls || {}) },
+          soundControls: { ...(prev.soundControls || defaultSoundControls), ...(updates.soundControls || {}) },
+        };
+        localStorage.setItem('appearance_studio_v2', JSON.stringify(nextState));
+
+        if (isAuthenticated) {
+          api.put('/users/personality', { personality: nextState }).catch((err) => {
+            console.error('[AppearanceContext] Failed to save to server:', err);
+          });
+        }
+
+        return nextState;
+      });
+    },
+    [isAuthenticated]
+  );
+
+  // Set Theme & auto-select default effect if provided
+  const setActiveTheme = useCallback(
+    (themeId) => {
+      const themeConfig = getThemeById(themeId);
+      updateAppearanceSettings({
+        activeThemeId: themeId,
+        activeEffectId: themeConfig.defaultEffect || 'none',
+      });
+    },
+    [updateAppearanceSettings]
+  );
+
+  // Set Visual Effect
+  const setActiveEffect = useCallback(
+    (effectId) => {
+      updateAppearanceSettings({ activeEffectId: effectId });
+    },
+    [updateAppearanceSettings]
+  );
+
+  // Set Global Wallpaper
+  const setGlobalWallpaper = useCallback(
+    (url) => {
+      updateAppearanceSettings({ globalWallpaperUrl: url });
+    },
+    [updateAppearanceSettings]
+  );
+
+  // Set Per-Chat Wallpaper
+  const setPerChatWallpaper = useCallback(
+    (roomId, url) => {
+      const updatedPerChat = {
+        ...(appearanceState.perChatWallpapers || {}),
+        [roomId]: url,
+      };
+      updateAppearanceSettings({ perChatWallpapers: updatedPerChat });
+    },
+    [appearanceState.perChatWallpapers, updateAppearanceSettings]
+  );
+
+  // Update Controls
+  const updateControls = useCallback(
+    (controlUpdates) => {
+      updateAppearanceSettings({
+        controls: { ...appearanceState.controls, ...controlUpdates },
+      });
+    },
+    [appearanceState.controls, updateAppearanceSettings]
+  );
+
+  // Update Animation Controls
+  const updateAnimationControls = useCallback(
+    (animUpdates) => {
+      updateAppearanceSettings({
+        animationControls: { ...appearanceState.animationControls, ...animUpdates },
+      });
+    },
+    [appearanceState.animationControls, updateAppearanceSettings]
+  );
+
+  // Update Sound Controls
+  const updateSoundControls = useCallback(
+    (soundUpdates) => {
+      updateAppearanceSettings({
+        soundControls: { ...appearanceState.soundControls, ...soundUpdates },
+      });
+    },
+    [appearanceState.soundControls, updateAppearanceSettings]
+  );
+
+  // Add Custom Wallpaper
+  const addCustomWallpaper = useCallback(
+    (item) => {
+      const newItem = {
+        id: 'wp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        url: item.url,
+        name: item.name || 'Custom Wallpaper',
+        isFavorite: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updatedList = [newItem, ...(appearanceState.customWallpapers || [])];
+      updateAppearanceSettings({ customWallpapers: updatedList });
+      return newItem;
+    },
+    [appearanceState.customWallpapers, updateAppearanceSettings]
+  );
+
+  // Save Custom Theme Preset
+  const saveCustomTheme = useCallback(
+    (name) => {
+      const newPreset = {
+        id: 'custom_theme_' + Date.now(),
+        name: name || 'My Custom Theme',
+        activeThemeId: appearanceState.activeThemeId,
+        activeEffectId: appearanceState.activeEffectId,
+        globalWallpaperUrl: appearanceState.globalWallpaperUrl,
+        controls: { ...appearanceState.controls },
+        createdAt: new Date().toISOString(),
+      };
+      const updatedList = [newPreset, ...(appearanceState.savedCustomThemes || [])];
+      updateAppearanceSettings({ savedCustomThemes: updatedList });
+    },
+    [appearanceState, updateAppearanceSettings]
+  );
+
+  // Delete Custom Theme Preset
+  const deleteCustomTheme = useCallback(
+    (id) => {
+      const updatedList = (appearanceState.savedCustomThemes || []).filter((t) => t.id !== id);
+      updateAppearanceSettings({ savedCustomThemes: updatedList });
+    },
+    [appearanceState.savedCustomThemes, updateAppearanceSettings]
+  );
+
+  // Get active wallpaper for room
+  const getActiveWallpaperForRoom = useCallback(
+    (roomId) => {
+      if (roomId && appearanceState.perChatWallpapers?.[roomId]) {
+        return appearanceState.perChatWallpapers[roomId];
+      }
+      return appearanceState.globalWallpaperUrl;
+    },
+    [appearanceState.globalWallpaperUrl, appearanceState.perChatWallpapers]
+  );
+
+  // Reset Appearance
+  const resetAppearance = useCallback(() => {
+    updateAppearanceSettings(defaultAppearanceState);
+  }, [updateAppearanceSettings]);
+
+  return (
+    <AppearanceContext.Provider
+      value={{
+        appearanceState,
+        activeTheme: getThemeById(appearanceState.activeThemeId),
+        setActiveTheme,
+        setActiveEffect,
+        setGlobalWallpaper,
+        setPerChatWallpaper,
+        updateControls,
+        updateAnimationControls,
+        updateSoundControls,
+        addCustomWallpaper,
+        saveCustomTheme,
+        deleteCustomTheme,
+        getActiveWallpaperForRoom,
+        resetAppearance,
+        defaultControls,
+        defaultAnimationControls,
+        defaultSoundControls,
+      }}
+    >
+      {children}
+    </AppearanceContext.Provider>
+  );
+};

@@ -3,6 +3,8 @@ import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 import { useWallpaper } from '../context/WallpaperContext';
+import { useAppearance } from '../context/AppearanceContext';
+import { themeSoundManager } from '../utils/themeSoundManager';
 import api from '../services/api';
 import VoiceCallModal from './VoiceCallModal';
 import VideoCallModal from './VideoCallModal';
@@ -13,10 +15,13 @@ import AudioPlayer from './AudioPlayer';
 import UserProfileModal from './profile/UserProfileModal';
 import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
 import AnimatedBackgroundLayer from './personality/AnimatedBackgroundLayer';
+import AppearanceStudioModal from './appearance/AppearanceStudioModal';
+import WallpaperEffectsLayer from './appearance/WallpaperEffectsLayer';
 
 export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSidebar }) {
   const { user } = useAuth();
-  const { getActiveWallpaperForRoom, personalityState } = useWallpaper();
+  const { getActiveWallpaperForRoom: getOldWp, personalityState } = useWallpaper();
+  const { getActiveWallpaperForRoom, appearanceState } = useAppearance();
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -277,6 +282,10 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   const handleInputChange = (e) => {
     setInputText(e.target.value);
 
+    if (appearanceState?.soundControls?.enableSounds && appearanceState?.soundControls?.enableTypingSound) {
+      themeSoundManager.playTypingSound();
+    }
+
     socket.emit('typing_start', { roomId, username: user?.username });
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -289,6 +298,10 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   const handleSubmitMessage = (e) => {
     if (e) e.preventDefault();
     if (!inputText.trim()) return;
+
+    if (appearanceState?.soundControls?.enableSounds && appearanceState?.soundControls?.enableSentSound) {
+      themeSoundManager.playSentSound();
+    }
 
     if (editingMessage) {
       socket.emit('edit_message', {
@@ -532,7 +545,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           }}
         />
 
-        {/* GPU Animated Particles Layer */}
+        {/* GPU Animated Visual Effects Layer */}
+        <WallpaperEffectsLayer />
         <AnimatedBackgroundLayer />
         {/* History Banner */}
         <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
@@ -828,8 +842,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         />
       )}
 
-      {/* Chat Personality Studio Modal */}
-      <ChatPersonalityStudioModal
+      {/* Appearance Studio Modal */}
+      <AppearanceStudioModal
         isOpen={isStudioOpen}
         onClose={() => setIsStudioOpen(false)}
         targetRoomId={roomId}
