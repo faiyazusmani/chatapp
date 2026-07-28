@@ -49,13 +49,18 @@ export default function UserProfileModal({ targetUserId, onClose }) {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const response = await api.put('/users/profile', editForm);
+      const payload = {
+        ...editForm,
+        birthday: editForm.birthday ? editForm.birthday : null
+      };
+      const response = await api.put('/users/profile', payload);
       setProfileData(response.data);
       updateLocalUser(response.data);
       setIsEditing(false);
     } catch (err) {
       console.error('Failed to save profile', err);
-      alert('Failed to save profile');
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save profile';
+      alert(`Failed to save profile: ${errMsg}`);
     } finally {
       setSaving(false);
     }
@@ -100,7 +105,8 @@ export default function UserProfileModal({ targetUserId, onClose }) {
       setEditForm((prev) => ({ ...prev, [cropTarget]: fileUrl }));
     } catch (err) {
       console.error('Failed to upload image', err);
-      alert('Upload failed');
+      const errMsg = err.response?.data?.message || err.message || 'Upload failed';
+      alert(`Upload failed: ${errMsg}`);
     } finally {
       setSaving(false);
       setCropTarget(null);
