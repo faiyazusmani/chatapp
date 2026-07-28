@@ -9,6 +9,16 @@ import SoundControls from './SoundControls';
 import SavedThemesManager from './SavedThemesManager';
 import ThemeShareModal from './ThemeShareModal';
 import AppearanceLivePreview from './AppearanceLivePreview';
+import '../../styles/gajim/gajim-provided.css';
+
+const TABS = [
+  { id: 'themes',     label: 'Themes',     icon: '🎨' },
+  { id: 'wallpapers', label: 'Wallpapers', icon: '🖼' },
+  { id: 'effects',    label: 'Effects',    icon: '✨' },
+  { id: 'animations', label: 'Animations', icon: '⚡' },
+  { id: 'sounds',     label: 'Sounds',     icon: '🔊' },
+  { id: 'saved',      label: 'Saved',      icon: '💾' },
+];
 
 export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, roomName }) {
   const { appearanceState, setActiveEffect, resetAppearance } = useAppearance();
@@ -17,87 +27,45 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
 
   if (!isOpen) return null;
 
-  const tabs = [
-    { id: 'themes', label: '🎨 Themes' },
-    { id: 'wallpapers', label: '🖼 Wallpapers' },
-    { id: 'effects', label: '✨ Effects' },
-    { id: 'animations', label: '⚡ Animations' },
-    { id: 'sounds', label: '🔊 Sounds' },
-    { id: 'saved', label: '💾 Saved' },
-  ];
-
   return (
     <>
+      {/* Backdrop */}
       <div
-        className="appearance-studio-backdrop"
         style={{
-          position: 'fixed',
-          inset: 0,
+          position: 'fixed', inset: 0,
           background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(10px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2500,
-          padding: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 2500, padding: 16,
         }}
         onClick={onClose}
       >
+        {/* Modal Card */}
         <div
+          className="modal-card"
           onClick={(e) => e.stopPropagation()}
-          className="appearance-studio-modal"
           style={{
-            width: '100%',
-            maxWidth: 960,
-            height: '90vh',
-            maxHeight: 680,
-            background: '#161921',
-            border: '1px solid #2d3241',
-            borderRadius: 20,
-            display: 'flex',
-            flexDirection: 'column',
+            width: '100%', maxWidth: 980,
+            height: '90vh', maxHeight: 700,
+            borderRadius: 16,
+            display: 'flex', flexDirection: 'column',
             overflow: 'hidden',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+            padding: 0,
           }}
         >
-          {/* Header Bar */}
-          <div
-            className="studio-header"
-            style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid #282c37',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: '#13151c',
-              flexWrap: 'wrap',
-              gap: 10,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                onClick={onClose}
-                className="touch-btn"
-                title="Back"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#38bdf8',
-                  fontSize: 18,
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  padding: '0 8px',
-                }}
-              >
-                ❮
+          {/* ── Header ─────────────────────────────────────────────── */}
+          <div className="modal-header" style={{ padding: '14px 20px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button className="btn-icon" onClick={onClose} aria-label="Close" title="Close">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+                </svg>
               </button>
-              <span style={{ fontSize: 20 }}>✨</span>
+              <span style={{ fontSize: 22 }}>✨</span>
               <div>
-                <div style={{ fontSize: 'var(--font-clamp-title, 16px)', fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
-                  Appearance Studio
-                </div>
-                <div style={{ fontSize: 'var(--font-clamp-small, 11px)', color: '#9ca3af' }}>
-                  Personalize themes, wallpapers, 60 FPS effects & sounds for your UI only.
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)' }}>Appearance Studio</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  Personalize themes, wallpapers, effects &amp; sounds.
                 </div>
               </div>
             </div>
@@ -105,147 +73,99 @@ export default function AppearanceStudioModal({ isOpen, onClose, targetRoomId, r
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 onClick={() => setShowShareModal(true)}
-                className="touch-btn"
-                style={{
-                  background: '#222530',
-                  border: '1px solid #2d3241',
-                  color: '#38bdf8',
-                  borderRadius: 8,
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                }}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: 12 }}
               >
                 📤 Share
               </button>
               <button
                 onClick={resetAppearance}
-                className="touch-btn"
-                title="Reset to Default Appearance"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #3f4657',
-                  color: '#9ca3af',
-                  borderRadius: 8,
-                  padding: '6px 12px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                }}
+                className="btn btn-secondary"
+                title="Reset to Default"
+                style={{ padding: '6px 12px', fontSize: 12 }}
               >
                 🔄 Reset
               </button>
-              <button
-                onClick={onClose}
-                className="touch-btn"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#9ca3af',
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  padding: '0 8px',
-                }}
-              >
-                &times;
+              <button className="btn-icon modal-close-btn" onClick={onClose} aria-label="Close">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
               </button>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* ── Tab Strip ──────────────────────────────────────────── */}
           <div
-            className="scrollzone studio-tabs"
-            style={{
-              display: 'flex',
-              gap: 6,
-              padding: '8px 16px',
-              background: '#101218',
-              borderBottom: '1px solid #282c37',
-              overflowX: 'auto',
-              WebkitOverflowScrolling: 'touch',
-            }}
+            className="filter-tabs scrollzone"
+            style={{ padding: '0 16px 8px', borderBottom: '1px solid var(--border-color)', gap: 4, flexShrink: 0 }}
           >
-            {tabs.map((tab) => (
+            {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="touch-btn"
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  fontSize: 'var(--font-clamp-body, 12px)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: activeTab === tab.id ? 'var(--theme-primary)' : 'transparent',
-                  color: activeTab === tab.id ? '#fff' : '#9ca3af',
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                }}
+                className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
               >
-                {tab.label}
+                <span style={{ marginRight: 4 }}>{tab.icon}</span>{tab.label}
               </button>
             ))}
           </div>
 
-          {/* Main Content Area (Split View / Mobile Stacked) */}
-          <div className="studio-content-layout" style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: 16, gap: 16 }}>
-            {/* Controls Pane */}
-            <div className="scrollzone" style={{ flex: 1.2, overflowY: 'auto', paddingRight: 4 }}>
-              {activeTab === 'themes' && <ThemeGallery />}
+          {/* ── Split Content ───────────────────────────────────────── */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', gap: 0 }}>
+
+            {/* Controls pane */}
+            <div
+              className="scrollzone"
+              style={{ flex: 1.2, overflowY: 'auto', padding: 16, borderRight: '1px solid var(--border-color)' }}
+            >
+              {activeTab === 'themes'     && <ThemeGallery />}
               {activeTab === 'wallpapers' && <WallpaperEditor />}
-              {activeTab === 'effects' && (
-                <div className="responsive-grid-gallery" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+              {activeTab === 'effects'    && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
                   {VISUAL_EFFECTS.map((eff) => (
-                    <div
+                    <button
                       key={eff.id}
                       onClick={() => setActiveEffect(eff.id)}
-                      className="touch-btn"
                       style={{
-                        padding: 12,
+                        padding: 14,
                         borderRadius: 10,
-                        background: '#13151c',
-                        border: appearanceState.activeEffectId === eff.id ? '2px solid var(--theme-primary)' : '1px solid #282c37',
+                        background: 'var(--bg-input)',
+                        border: appearanceState.activeEffectId === eff.id
+                          ? '2px solid var(--color-primary)'
+                          : '1px solid var(--border-color)',
                         cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 6,
-                        textAlign: 'center',
-                        minHeight: 64,
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        gap: 6, textAlign: 'center', minHeight: 70,
+                        transition: 'all 0.15s ease',
                       }}
                     >
-                      <span style={{ fontSize: 24 }}>{eff.icon}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#f3f4f6' }}>{eff.name}</span>
-                    </div>
+                      <span style={{ fontSize: 26 }}>{eff.icon}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>{eff.name}</span>
+                    </button>
                   ))}
                 </div>
               )}
               {activeTab === 'animations' && <AnimationControls />}
-              {activeTab === 'sounds' && <SoundControls />}
-              {activeTab === 'saved' && <SavedThemesManager />}
+              {activeTab === 'sounds'     && <SoundControls />}
+              {activeTab === 'saved'      && <SavedThemesManager />}
             </div>
 
-            {/* Right Live Preview Pane */}
+            {/* Live Preview pane */}
             <AppearanceLivePreview targetRoomId={targetRoomId} roomName={roomName} />
           </div>
         </div>
       </div>
 
-      {/* Share / QR Modal */}
+      {/* Share Modal */}
       <ThemeShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
     </>
   );
 }
 
 AppearanceStudioModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
+  isOpen:       PropTypes.bool.isRequired,
+  onClose:      PropTypes.func.isRequired,
   targetRoomId: PropTypes.string,
-  roomName: PropTypes.string,
+  roomName:     PropTypes.string,
 };

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import RoomCard from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
 import ChatWindow from '../components/ChatWindow';
@@ -20,7 +19,7 @@ export default function Chat() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  
+
   // Responsive UI state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -46,15 +45,13 @@ export default function Chat() {
   // Handle Select Room
   const handleSelectRoom = (room) => {
     setActiveRoom(room);
-    setIsMobileSidebarOpen(false); // Close sidebar on mobile when a room is selected
+    setIsMobileSidebarOpen(false);
 
-    // Track recent room
     setRecentRooms((prev) => {
       const filtered = prev.filter((r) => (r._id || r.id) !== (room._id || room.id));
       return [room, ...filtered].slice(0, 10);
     });
 
-    // Track joined room
     setJoinedRooms((prev) => {
       if (prev.some((r) => (r._id || r.id) === (room._id || room.id))) return prev;
       return [...prev, room];
@@ -66,7 +63,6 @@ export default function Chat() {
     try {
       const response = await api.post('/rooms', newRoomData);
       const createdRoom = response.data;
-
       setRooms((prev) => [createdRoom, ...prev]);
       handleSelectRoom(createdRoom);
       showToast(`Room "${createdRoom.name}" created! Code: ${createdRoom.code}`);
@@ -76,17 +72,15 @@ export default function Chat() {
     }
   };
 
-  // Handle Join Room using Room Code
+  // Handle Join Room
   const handleJoinRoom = async (roomCode) => {
     try {
       const response = await api.post('/rooms/join', { code: roomCode });
       const joinedRoom = response.data;
-
       setRooms((prev) => {
         const exists = prev.some((r) => (r._id || r.id) === (joinedRoom._id || joinedRoom.id));
         return exists ? prev : [joinedRoom, ...prev];
       });
-
       handleSelectRoom(joinedRoom);
       showToast(`Joined room "${joinedRoom.name}"!`);
     } catch (err) {
@@ -121,11 +115,9 @@ export default function Chat() {
 
   return (
     <div className="gajim-window">
-
-
-      {/* Gajim Desktop Main Body */}
       <div className="gajim-body">
-        {/* Gajim 2-Column Sidebar */}
+
+        {/* Sidebar */}
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -141,77 +133,70 @@ export default function Chat() {
           setIsMobileSidebarOpen={setIsMobileSidebarOpen}
         />
 
-        {/* Main Workspace Area */}
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        {/* Main workspace */}
+        <main className="chat-panel">
           {activeTab === 'calls' ? (
             <CallHistoryPage />
           ) : (
             <>
-              {/* Toast Notification Banner */}
-              {toastMessage && (
-            <div
-              style={{
-                position: 'fixed',
-                bottom: 24,
-                right: 24,
-                zIndex: 9999,
-                padding: '12px 20px',
-                background: '#1c1f28',
-                border: '1px solid #2d3241',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                color: '#f3f4f6',
-                fontSize: 13,
-                fontWeight: 500,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '16px',
-                animation: 'msgFadeIn 0.2s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>✨</span>
-                <span>{toastMessage}</span>
-              </div>
-              <button
-                onClick={() => setToastMessage('')}
-                style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 16 }}
-              >
-                &times;
-              </button>
-            </div>
+              {/* Active room */}
+              {activeRoom ? (
+                <ChatWindow
+                  room={activeRoom}
+                  onLeaveRoom={handleLeaveRoom}
+                  onBack={() => setActiveRoom(null)}
+                  onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+                />
+              ) : (
+                /* Empty state */
+                <div className="empty-chat-state" style={{ background: 'var(--theme-chat-bg)' }}>
+                  <div className="empty-chat-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.25 }}>
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </div>
+                  <h3 className="empty-chat-title">No chat selected</h3>
+                  <p className="empty-chat-sub">Select a room from the sidebar to start chatting.</p>
+                  <button
+                    className="btn btn-primary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setIsCreateModalOpen(true)}
+                  >
+                    + Create a Room
+                  </button>
+                </div>
+              )}
+            </>
           )}
-
-          {activeRoom ? (
-            /* Active Real-Time Chat Workspace */
-            <ChatWindow
-              room={activeRoom}
-              onLeaveRoom={handleLeaveRoom}
-              onBack={() => setActiveRoom(null)}
-              onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
-            />
-          ) : (
-            /* Gajim Minimal Empty State */
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#181a20', color: '#5a6278' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#8b92a5', margin: '0 0 8px' }}>No chat selected</h3>
-              <p style={{ fontSize: 13, margin: 0 }}>Select a contact or room from the roster to start chatting.</p>
-            </div>
-          )}
-          </>
-        )}
-      </main>
+        </main>
       </div>
 
-      {/* Create Room Modal */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="app-toast" role="status" aria-live="polite">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15 }}>✨</span>
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            className="btn-icon"
+            onClick={() => setToastMessage('')}
+            aria-label="Dismiss"
+            style={{ width: 28, height: 28 }}
+          >
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
       <CreateRoomModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreateRoom={handleCreateRoom}
       />
-
-      {/* Join Room Modal */}
       <JoinRoomModal
         isOpen={isJoinModalOpen}
         onClose={() => setIsJoinModalOpen(false)}

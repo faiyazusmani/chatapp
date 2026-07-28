@@ -494,164 +494,100 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       <NotificationToast notifications={notifications} onDismiss={handleDismissNotification} />
 
       {/* Layer 4: Top Header Bar (Dedicated Multi-Header Architecture) */}
-      <div style={{ position: 'relative', zIndex: 4, background: 'var(--theme-sidebar-bg)', borderBottom: '1px solid var(--border)' }}>
-        
-        {/* ==================== 1. DESKTOP HEADER (>1024px) ==================== */}
-        <div className="desktop-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 16px', flexWrap: 'nowrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
-              ❮
-            </button>
-            <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, position: 'relative', flexShrink: 0 }}>
-              {getUserInitials(room.name)}
-              <span style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#22c55e', border: '1.5px solid #1c1f28' }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
-              {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)' }}>Code: #{room.code}</div>}
-            </div>
+      <header className="chat-header" id="chat-header" style={{ position: 'relative', zIndex: 4, flexShrink: 0 }}>
+          <div className="header-left">
+              <button className="btn-icon back-to-list-btn" onClick={onToggleMobileSidebar} title="Menu" aria-label="Menu" style={{ display: 'md-none' }}>
+                  <span style={{ fontSize: 18 }}>☰</span>
+              </button>
+              <button className="btn-icon back-to-list-btn" onClick={onBack} title="Back to Chat List" aria-label="Back to Chat List">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              </button>
+
+              <div className="avatar-container">
+                  <div className="avatar" style={{ background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="avatar-text" style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>{getUserInitials(room.name)}</span>
+                  </div>
+                  <span className="status-indicator status-online" id="header-status-dot"></span>
+              </div>
+              <div className="contact-details">
+                  <div className="contact-name-row">
+                      <h2 className="contact-name" id="header-contact-name">{room.name || 'Note to myself'}</h2>
+                      <span className="encryption-badge verified" id="header-encryption-badge" title="OMEMO End-to-End Encrypted">
+                          <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          <span>OMEMO</span>
+                      </span>
+                  </div>
+                  <p className="contact-status-text" id="header-status-text">
+                    {room.code ? `Code: #${room.code}` : 'Encrypted XMPP Session'}
+                  </p>
+              </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <button
-              onClick={() => setIsStudioOpen(true)}
-              title="Chat Personality Studio"
-              style={{
-                background: 'rgba(124, 58, 237, 0.2)',
-                border: '1px solid #7c3aed',
-                borderRadius: 6,
-                color: '#c084fc',
-                padding: '5px 10px',
-                fontSize: 12,
-                cursor: 'pointer',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              ✨ Studio
-            </button>
-            <button onClick={handleStartVoiceCall} title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
-              📞 Voice
-            </button>
-            <button onClick={handleStartVideoCall} title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
-              📹 Video
-            </button>
-            <button title="Share Link" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
-              🔗
-            </button>
-            <button title="Search Chat" style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: 14, cursor: 'pointer', padding: 6 }}>
-              🔍
-            </button>
-            <button onClick={() => onLeaveRoom(roomId)} title="Leave Room" style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 14, cursor: 'pointer', padding: 6 }}>
-              🚪
-            </button>
-          </div>
-        </div>
-
-        {/* ==================== 2. TABLET HEADER (768px - 1024px) ==================== */}
-        <div className="tablet-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px', flexWrap: 'nowrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
-              ❮
-            </button>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-              {getUserInitials(room.name)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
-              {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)' }}>#{room.code}</div>}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <button onClick={() => setIsStudioOpen(true)} style={{ background: 'rgba(124, 58, 237, 0.2)', border: '1px solid #7c3aed', borderRadius: 6, color: '#c084fc', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>✨ Studio</button>
-            <button onClick={handleStartVoiceCall} style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>📞 Voice</button>
-            <button onClick={handleStartVideoCall} style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 12, cursor: 'pointer' }}>📹 Video</button>
-          </div>
-        </div>
-
-        {/* ==================== 3. DEDICATED MOBILE HEADER (<768px) ==================== */}
-        <div className="mobile-header-view" style={{ minHeight: 52, alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px', flexWrap: 'nowrap', gap: 6 }}>
-          {/* Left: ☰ Avatar RoomName / Code */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-            <button onClick={onToggleMobileSidebar} title="Menu" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 18, padding: '4px 2px' }}>
-              ☰
-            </button>
-            <button onClick={onBack} title="Back" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14, padding: '4px 2px' }}>
-              ❮
-            </button>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0, position: 'relative' }}>
-              {getUserInitials(room.name)}
-              <span style={{ position: 'absolute', bottom: 0, right: 0, width: 7, height: 7, borderRadius: '50%', background: '#22c55e', border: '1px solid #1c1f28' }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2' }}>{room.name || 'Note to myself'}</div>
-              {room.code && <div style={{ fontSize: 9, color: 'var(--theme-text-muted, #6b7280)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{room.code}</div>}
-            </div>
-          </div>
-
-          {/* Right: Voice Video More */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <button onClick={handleStartVoiceCall} className="touch-btn" title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
-              📞
-            </button>
-            <button onClick={handleStartVideoCall} className="touch-btn" title="Video Call" style={{ background: '#9333ea', border: 'none', borderRadius: 6, color: '#fff', padding: '6px 8px', fontSize: 13, cursor: 'pointer' }}>
-              📹
-            </button>
-            <button onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)} className="touch-btn" title="More Options" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#f3f4f6', padding: '6px 10px', fontSize: 14, cursor: 'pointer', fontWeight: 700 }}>
-              ⋮
-            </button>
+          <div className="header-right-actions">
+              <button className="btn-icon" onClick={() => setIsStudioOpen(true)} title="Chat Personality Studio" aria-label="Studio">
+                  <span>✨</span>
+              </button>
+              <button className="btn-icon" onClick={handleStartVoiceCall} title="Start Audio Call" aria-label="Audio Call">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </button>
+              <button className="btn-icon" onClick={handleStartVideoCall} title="Start Video Call" aria-label="Video Call">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              </button>
+              <button className="btn-icon" onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)} title="Search in Conversation" aria-label="Search Messages">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+              <div className="action-divider"></div>
+              <button className="btn-icon" onClick={() => onLeaveRoom(roomId)} title="Leave Room" aria-label="Leave Room">
+                  <span style={{ color: '#ef4444' }}>🚪</span>
+              </button>
           </div>
 
           {/* Mobile ⋮ More Dropdown Menu */}
           {isMobileMoreOpen && (
-            <div className="mobile-more-dropdown" onClick={(e) => e.stopPropagation()}>
-              <button className="mobile-more-dropdown-item" onClick={() => { setIsStudioOpen(true); setIsMobileMoreOpen(false); }}>
+            <div className="mobile-more-dropdown" onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', right: 10, top: 50, background: 'var(--theme-sidebar-bg)', border: '1px solid #2d3241', borderRadius: 8, padding: 8, zIndex: 100 }}>
+              <button className="mobile-more-dropdown-item" onClick={() => { setIsStudioOpen(true); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#d1d5db', textAlign: 'left', cursor: 'pointer' }}>
                 <span>✨</span> Appearance Studio
               </button>
-              <button className="mobile-more-dropdown-item" onClick={() => { setIsMobileMoreOpen(false); }}>
-                <span>🔍</span> Search Chat
-              </button>
-              <button className="mobile-more-dropdown-item" onClick={() => { setIsMobileMoreOpen(false); }}>
-                <span>🔗</span> Share Room Link
-              </button>
-              <button className="mobile-more-dropdown-item" onClick={() => { onLeaveRoom(roomId); setIsMobileMoreOpen(false); }} style={{ color: '#ef4444' }}>
+              <button className="mobile-more-dropdown-item" onClick={() => { onLeaveRoom(roomId); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#ef4444', textAlign: 'left', cursor: 'pointer' }}>
                 <span>🚪</span> Leave Room
               </button>
             </div>
           )}
-        </div>
-      </div>
+      </header>
 
-      {/* Layer 3: Messages Feed Area (position: relative; z-index: 3; flex: 1; overflow-y: auto;) */}
-      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', zIndex: 3 }}>
-        {/* History Banner */}
-        <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
-          There is no more history
+      {/* ─── Messages Feed Area ──────────────────────────────────────── */}
+      <div
+        className="messages-history-container scrollzone"
+        id="messages-container"
+        role="log"
+        aria-live="polite"
+        aria-label="Message Stream"
+        style={{ position: 'relative', zIndex: 3 }}
+      >
+        {/* Security notice banner */}
+        <div className="system-message security-notice">
+          <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Messages and calls in this conversation are end-to-end encrypted.</span>
         </div>
 
         {/* Load More Button */}
         {hasMore && messages.length > 0 && (
-          <div style={{ textAlign: 'center', marginBottom: 12 }}>
-            <button 
+          <div className="day-divider">
+            <button
               onClick={fetchOlderMessages}
-              style={{ background: '#2e3342', color: '#9ca3af', border: '1px solid #3f4657', borderRadius: 20, padding: '6px 16px', fontSize: 12, cursor: 'pointer' }}
+              className="day-divider-label"
+              style={{ cursor: 'pointer', border: '1px solid var(--border-color)', background: 'var(--bg-badge)' }}
             >
               Load Older Messages
             </button>
           </div>
         )}
 
-        {/* Date Separator */}
-        <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '4px 0 12px' }}>
-          Fri 2025-08-01
-        </div>
-
         {messages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#6b7280', padding: '30px 0', fontSize: 13 }}>
-            No history in <strong>{room.name}</strong> yet. Send a message!
+          <div className="empty-roster-state" style={{ flex: 1 }}>
+            <svg className="icon icon-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <p className="empty-title">No messages yet</p>
+            <p className="empty-subtitle">Be the first to say something in <strong>{room.name}</strong>!</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -660,36 +596,39 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             const initials = getUserInitials(senderName);
 
             return (
-              <div 
-                key={msg._id} 
+              <div
+                key={msg._id}
+                className={`message-row ${isMe ? 'message-row--me' : ''}`}
                 onClick={() => setHoveredMessageId(hoveredMessageId === msg._id ? null : msg._id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
-                style={{ display: 'flex', gap: 10, alignItems: 'flex-start', position: 'relative' }}
+                style={{ display: 'flex', gap: 10, alignItems: 'flex-start', position: 'relative', animation: 'message-appear 150ms ease-out' }}
               >
-                <div style={{ cursor: 'pointer' }} onClick={() => setTargetProfileId(msg.sender?._id || msg.sender?.id)}>
+                {/* Avatar */}
+                <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setTargetProfileId(msg.sender?._id || msg.sender?.id)}>
                   <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
-                    <div style={{ width: 32, height: 32, borderRadius: '4px', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 6, background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, overflow: 'hidden' }}>
                       {msg.sender?.avatar ? (
                         <img src={msg.sender.avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        initials
-                      )}
+                      ) : initials}
                     </div>
                   </PresenceBadge>
                 </div>
-                <div className="msg-content-wrap" style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--theme-sender-color, #60a5fa)', textShadow: 'var(--theme-text-shadow, none)' }}>{senderName}</span>
+
+                {/* Message Content */}
+                <div className="msg-content-wrap" style={{ flex: 1, minWidth: 0 }}>
+                  {/* Sender row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--theme-sender-color, #60a5fa)' }}>{senderName}</span>
                     {msg.sender?.customStatus?.emoji && (
                       <span style={{ fontSize: 11 }} title={msg.sender?.customStatus?.text}>{msg.sender.customStatus.emoji}</span>
                     )}
-                    <span style={{ fontSize: 11, color: 'var(--theme-text-muted, #9ca3af)', textShadow: 'var(--theme-text-shadow, none)' }}>{formatTime(msg.createdAt)}</span>
+                    <span className="chat-timestamp">{formatTime(msg.createdAt)}</span>
                   </div>
 
                   {/* Image Attachment */}
                   {msg.fileUrl && msg.fileType === 'image' && (
-                    <div className="msg-image-container" style={{ marginTop: 6, borderRadius: 8, overflow: 'hidden', border: '1px solid #2d3241' }}>
-                      <img src={msg.fileUrl} alt="Attachment" style={{ width: '100%', maxWidth: 300, display: 'block', cursor: 'pointer' }} onClick={() => setPreviewImageUrl(msg.fileUrl)} />
+                    <div className="msg-image-container" style={{ marginTop: 4, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                      <img src={msg.fileUrl} alt="Attachment" style={{ width: '100%', maxWidth: 320, display: 'block', cursor: 'pointer' }} onClick={() => setPreviewImageUrl(msg.fileUrl)} />
                     </div>
                   )}
 
@@ -698,10 +637,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                     <AudioPlayer src={msg.fileUrl} />
                   )}
 
+                  {/* Generic File Attachment */}
                   {msg.fileUrl && msg.fileType !== 'image' && msg.fileType !== 'audio' && (
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--theme-msg-in-bg)', borderRadius: 'var(--theme-radius)', border: '1px solid var(--border)', width: 'fit-content' }}>
-                      <span style={{ fontSize: 20 }}>📄</span>
-                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--theme-sender-color, #60a5fa)', fontSize: 13, textDecoration: 'none' }}>
+                    <div className="attachment-item" style={{ marginTop: 4, width: 'fit-content', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-input)' }}>
+                      <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', fontSize: 13, textDecoration: 'none' }}>
                         {msg.fileName || 'Download File'}
                       </a>
                     </div>
@@ -709,14 +649,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
                   {/* Message Text */}
                   {msg.content && msg.fileType !== 'call' && (
-                    <div className={isMe ? 'msg-bubble msg-bubble-out' : 'msg-bubble msg-bubble-in'} style={{ fontSize: 13, color: isMe ? 'var(--theme-msg-out-text, #ffffff)' : 'var(--theme-msg-in-text, var(--theme-text-color))', marginTop: 4, lineHeight: '1.4', wordBreak: 'break-word' }}>
+                    <div
+                      className={isMe ? 'msg-bubble msg-bubble-out' : 'msg-bubble msg-bubble-in'}
+                      style={{ marginTop: 4, lineHeight: 1.45, wordBreak: 'break-word', fontSize: 13 }}
+                    >
                       {msg.content}
                     </div>
                   )}
 
                   {/* Call History Message */}
                   {msg.fileType === 'call' && (
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--theme-msg-in-bg)', borderRadius: 'var(--theme-radius)', border: '1px solid var(--border)', width: 'fit-content' }}>
+                    <div className="system-message" style={{ justifyContent: 'flex-start', maxWidth: 'fit-content', marginLeft: 0 }}>
                       {(() => {
                         try {
                           const callData = JSON.parse(msg.content);
@@ -725,29 +668,25 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                           const durationStr = callData.duration ? `${Math.floor(callData.duration/60)}m ${callData.duration%60}s` : '';
                           return (
                             <>
-                              <div style={{ fontSize: 24, color: isMissed ? '#ef4444' : '#10b981' }}>{icon}</div>
-                              <div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: isMissed ? '#ef4444' : '#e5e7eb' }}>
-                                  {callData.type === 'video' ? 'Video Call' : 'Voice Call'} {isMissed ? 'Missed' : 'Ended'}
-                                </div>
-                                {callData.duration > 0 && <div style={{ fontSize: 11, color: '#9ca3af' }}>Duration: {durationStr}</div>}
-                              </div>
+                              <span style={{ fontSize: 18, color: isMissed ? '#ef4444' : '#22c55e' }}>{icon}</span>
+                              <span>
+                                <strong>{callData.type === 'video' ? 'Video Call' : 'Voice Call'}</strong> {isMissed ? 'Missed' : 'Ended'}
+                                {callData.duration > 0 && ` · ${durationStr}`}
+                              </span>
                             </>
                           );
-                        } catch (e) {
-                          return null;
-                        }
+                        } catch (e) { return null; }
                       })()}
                     </div>
                   )}
 
-                  {/* Action buttons */}
-                  <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                    <button onClick={() => setReplyingTo(msg)} style={{ background: 'transparent', border: 'none', color: '#6b7280', fontSize: 11, cursor: 'pointer' }}>Reply</button>
+                  {/* Action buttons (Reply / Edit / Delete) */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
+                    <button onClick={() => setReplyingTo(msg)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Reply</button>
                     {user?.username === senderName && (
                       <>
-                        <button onClick={() => handleStartEdit(msg)} style={{ background: 'transparent', border: 'none', color: '#6b7280', fontSize: 11, cursor: 'pointer' }}>Edit</button>
-                        <button onClick={() => handleDeleteMessage(msg._id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer' }}>Delete</button>
+                        <button onClick={() => handleStartEdit(msg)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Edit</button>
+                        <button onClick={() => handleDeleteMessage(msg._id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer', padding: 0 }}>Delete</button>
                       </>
                     )}
                   </div>
@@ -762,15 +701,15 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                             key={i}
                             onClick={() => handleToggleReaction(msg._id, reaction.emoji)}
                             style={{
-                              background: hasReacted ? 'rgba(88, 101, 242, 0.2)' : 'var(--theme-msg-in-bg)',
-                              border: `1px solid ${hasReacted ? '#5865F2' : '#2d3241'}`,
+                              background: hasReacted ? 'rgba(88,101,242,0.2)' : 'var(--bg-input)',
+                              border: `1px solid ${hasReacted ? '#5865F2' : 'var(--border-color)'}`,
                               borderRadius: 8,
-                              padding: '2px 6px',
+                              padding: '2px 8px',
                               display: 'flex',
                               alignItems: 'center',
                               gap: 4,
                               cursor: 'pointer',
-                              color: hasReacted ? '#a5b4fc' : '#9ca3af',
+                              color: hasReacted ? '#a5b4fc' : 'var(--text-muted)',
                               fontSize: 12
                             }}
                           >
@@ -782,16 +721,15 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                     </div>
                   )}
 
-                  {/* Reaction Picker */}
+                  {/* Reaction Picker floating toolbar */}
                   {hoveredMessageId === msg._id && (
-                    <div style={{ position: 'absolute', top: -10, right: 10, background: 'var(--theme-chat-bg)', border: '1px solid var(--border)', borderRadius: 6, display: 'flex', gap: 2, padding: 4, boxShadow: '0 4px 10px rgba(0,0,0,0.5)', zIndex: 10 }}>
+                    <div style={{ position: 'absolute', top: -12, right: 12, background: 'var(--bg-popover)', border: '1px solid var(--border-color)', borderRadius: 8, display: 'flex', gap: 2, padding: '4px 6px', boxShadow: 'var(--shadow-lg)', zIndex: 10 }}>
                       {['👍', '❤️', '😂', '🔥', '😮', '😢', '👏'].map(emoji => (
-                        <button 
+                        <button
                           key={emoji}
                           onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg._id, emoji); setHoveredMessageId(null); }}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 16, padding: '2px 4px', borderRadius: 4, transition: 'background 0.2s' }}
-                          onMouseOver={(e) => e.currentTarget.style.background = '#2e3342'}
-                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          className="emoji-btn"
+                          style={{ fontSize: 15 }}
                         >
                           {emoji}
                         </button>
@@ -806,81 +744,124 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
         {/* Uploading indicator */}
         {uploadingFile && (
-          <div style={{ fontSize: 11, color: '#a855f7', fontStyle: 'italic' }}>
-            ⏳ Uploading attachment...
+          <div className="typing-indicator-inline">
+            <div className="dots-pulse">
+              <span className="dot"></span><span className="dot"></span><span className="dot"></span>
+            </div>
+            <span>Uploading attachment...</span>
           </div>
         )}
 
         {/* Typing Banner */}
         {typingArray.length > 0 && (
-          <div style={{ fontSize: 11, color: '#a855f7', fontStyle: 'italic' }}>
-            {typingArray.join(', ')} is typing...
+          <div className="typing-indicator-inline">
+            <div className="dots-pulse">
+              <span className="dot"></span><span className="dot"></span><span className="dot"></span>
+            </div>
+            <span>{typingArray.join(', ')} is typing...</span>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Reply Banner */}
-      {replyingTo && (
-        <div style={{ padding: '6px 14px', background: 'var(--theme-msg-in-bg)', borderTop: '1px solid var(--border)', fontSize: 11, color: '#9ca3af', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>Replying to <strong>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;</span>
-          <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
-        </div>
-      )}
-
-      {/* Editing Banner */}
-      {editingMessage && (
-        <div style={{ padding: '6px 14px', background: 'rgba(147, 51, 234, 0.2)', borderTop: '1px solid #9333ea', fontSize: 11, color: '#a855f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>Editing message: &quot;{editingMessage.content}&quot;</span>
-          <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
-        </div>
-      )}
-
       {/* Hidden File Input */}
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} accept="image/*,.pdf,.doc,.docx,.txt,.zip" />
 
-      {/* Layer 4: Gajim Input Toolbar & Textarea */}
-      <div style={{ position: 'relative', zIndex: 4, padding: '10px 14px max(12px, env(safe-area-inset-bottom, 0px))', borderTop: '1px solid var(--border)', background: 'var(--theme-sidebar-bg)' }}>
+      {/* ─── Composer ──────────────────────────────────────────────── */}
+      <footer className="chat-composer-container" style={{ position: 'relative', zIndex: 4 }}>
+
+        {/* Emoji Picker Popover */}
+        {showEmojiPicker && (
+          <div className="emoji-picker-popover" id="emoji-picker" role="dialog" aria-label="Emoji Picker">
+            <div className="emoji-picker-header">
+              <input type="text" placeholder="Search emojis..." aria-label="Search emojis" style={{ color: 'var(--text-main)' }} />
+            </div>
+            <div className="emoji-grid" id="emoji-grid">
+              {['👍','❤️','🔥','🚀','🎉','😊','😂','😎','💻','🔒','✅','✨','😮','😢','👏','🎨'].map(emoji => (
+                <button key={emoji} type="button" className="emoji-btn" onClick={() => { handleAddEmoji(emoji); setShowEmojiPicker(false); }}>{emoji}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reply Banner */}
+        {replyingTo && (
+          <div style={{ padding: '4px 8px', background: 'var(--bg-input)', borderRadius: 6, border: '1px solid var(--border-color)', fontSize: 11, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Replying to <strong style={{ color: 'var(--color-primary)' }}>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;
+            </span>
+            <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
+          </div>
+        )}
+
+        {/* Editing Banner */}
+        {editingMessage && (
+          <div style={{ padding: '4px 8px', background: 'rgba(147,51,234,0.15)', borderRadius: 6, border: '1px solid #9333ea', fontSize: 11, color: '#a855f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              ✏️ Editing: &quot;{editingMessage.content}&quot;
+            </span>
+            <button onClick={() => { setEditingMessage(null); setInputText(''); }} style={{ background: 'transparent', border: 'none', color: '#a855f7', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
+          </div>
+        )}
+
+        {/* Main Composer Form */}
         {isRecordingVoice ? (
           <VoiceRecorder onCancel={() => setIsRecordingVoice(false)} onSend={handleSendVoiceNote} />
         ) : (
-          <form onSubmit={handleSubmitMessage} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--theme-msg-in-bg)', borderRadius: 'var(--theme-radius)', border: '1px solid var(--border)', padding: '6px 12px' }}>
-            {/* Emoji */}
-            <button type="button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 15 }}>
-              😃
-            </button>
-            {/* Text Input Box */}
-            <input
-              type="text"
-              value={inputText}
-              onChange={handleInputChange}
-              placeholder={editingMessage ? 'Edit message...' : replyingTo ? `Replying to @${replyingTo.sender?.username}...` : `Message #${room.name || 'room'}...`}
-              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--input-text, #f3f4f6)', fontSize: 13, fontFamily: 'Inter, sans-serif' }}
-            />
+          <form className="composer-form" id="composer-form" onSubmit={handleSubmitMessage} autoComplete="off">
+            <div className="composer-toolbar-left">
+              <button type="button" className="btn-icon" onClick={() => fileInputRef.current?.click()} title="Add Attachment" aria-label="Add Attachment">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <button type="button" className="btn-icon encryption-toggle-btn active" title="OMEMO Encryption: Enabled" aria-label="Toggle OMEMO Encryption">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </button>
+            </div>
 
-            {/* Mic */}
-            <button type="button" onMouseDown={() => setIsRecordingVoice(true)} title="Voice Note" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
-              🎙️
-            </button>
-            {/* Paperclip */}
-            <button type="button" onClick={() => fileInputRef.current?.click()} title="Attach File" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 14 }}>
-              📎
-            </button>
+            <div className="composer-input-wrapper">
+              <textarea
+                id="composer-textarea"
+                className="composer-textarea"
+                value={inputText}
+                onChange={handleInputChange}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmitMessage(); } }}
+                placeholder={
+                  editingMessage ? 'Edit message... (Enter to save)' :
+                  replyingTo ? `Replying to @${replyingTo.sender?.username}... (Enter to send)` :
+                  `Send a message... (Enter to send, Shift+Enter for new line)`
+                }
+                rows={1}
+                maxLength={2000}
+                aria-label="Message text composer"
+              />
+            </div>
+
+            <div className="composer-toolbar-right">
+              <button type="button" className="btn-icon" title="Voice Note" aria-label="Voice Note" onMouseDown={() => setIsRecordingVoice(true)}>
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+              <button type="button" className="btn-icon" id="emoji-trigger-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Insert Emoji" aria-label="Insert Emoji">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              </button>
+              <button type="submit" className="btn-send" id="btn-send-message" title="Send Message (Enter)" aria-label="Send Message">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
           </form>
         )}
-      </div>
 
-      {/* Emoji Picker Popover */}
-      {showEmojiPicker && (
-        <div style={{ position: 'absolute', bottom: 65, left: 20, background: '#222530', border: '1px solid #2d3241', borderRadius: 8, padding: 8, display: 'flex', gap: 6, zIndex: 100 }}>
-          {['❤️', '😂', '👍', '🔥', '🎉', '🚀', '😎', '👏'].map((emoji) => (
-            <button key={emoji} onClick={() => handleAddEmoji(emoji)} style={{ background: 'transparent', border: 'none', fontSize: 16, cursor: 'pointer' }}>
-              {emoji}
-            </button>
-          ))}
+        {/* Composer Bottom Info Bar */}
+        <div className="composer-footer-bar">
+          <div className="typing-status-indicator" id="remote-typing-status">
+            {typingArray.length > 0 && `${typingArray.join(', ')} is typing...`}
+          </div>
+          <div className="composer-meta">
+            <span className="keyboard-shortcut-hint">Press <strong>Enter</strong> to send</span>
+            <span className="char-counter" id="char-counter">{inputText.length} / 2000</span>
+          </div>
         </div>
-      )}
+      </footer>
 
       {/* Lightbox Modal */}
       {previewImageUrl && (

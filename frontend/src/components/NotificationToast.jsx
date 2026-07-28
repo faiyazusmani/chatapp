@@ -1,31 +1,45 @@
 export default function NotificationToast({ notifications, onDismiss }) {
   if (!notifications || notifications.length === 0) return null;
 
-  const getToastIcon = (type) => {
-    switch (type) {
-      case 'join': return '👋';
-      case 'leave': return '🚪';
-      case 'message': return '💬';
-      case 'voice_call': return '📞';
-      case 'video_call': return '📹';
-      default: return '🔔';
-    }
+  const TOAST_META = {
+    join:       { icon: '👋', accent: 'var(--color-success)' },
+    leave:      { icon: '🚪', accent: 'var(--text-muted)' },
+    message:    { icon: '💬', accent: 'var(--color-primary)' },
+    voice_call: { icon: '📞', accent: 'var(--color-success)' },
+    video_call: { icon: '📹', accent: '#3b82f6' },
+    default:    { icon: '🔔', accent: 'var(--color-primary)' },
   };
 
   return (
-    <div className="toast-notifications-container">
-      {notifications.map((toast) => (
-        <div key={toast.id} className={`toast-notification-item toast-type-${toast.type || 'info'}`}>
-          <span className="toast-icon">{getToastIcon(toast.type)}</span>
-          <div className="toast-content-wrapper">
-            <div className="toast-title">{toast.title || 'Notification'}</div>
-            <div className="toast-body">{toast.message}</div>
+    <div className="toast-stack" role="region" aria-label="Notifications">
+      {notifications.map((toast) => {
+        const meta = TOAST_META[toast.type] || TOAST_META.default;
+        return (
+          <div
+            key={toast.id}
+            className="toast-item"
+            style={{ '--toast-accent': meta.accent }}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="toast-icon-wrap">{meta.icon}</span>
+            <div className="toast-body-wrap">
+              <div className="toast-title">{toast.title || 'Notification'}</div>
+              {toast.message && <div className="toast-message">{toast.message}</div>}
+            </div>
+            <button
+              className="btn-icon toast-dismiss"
+              onClick={() => onDismiss(toast.id)}
+              aria-label="Dismiss notification"
+              style={{ width: 26, height: 26, flexShrink: 0 }}
+            >
+              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
-          <button className="toast-close-btn" onClick={() => onDismiss(toast.id)}>
-            &times;
-          </button>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

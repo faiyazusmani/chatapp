@@ -10,6 +10,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Chat from './pages/Chat';
+// Global Gajim design system — loaded once, available everywhere
+import './styles/gajim/gajim-provided.css';
 
 export default function App() {
   return (

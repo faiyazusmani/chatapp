@@ -52,11 +52,11 @@ const updateProfile = async (req, res, next) => {
     if (user) {
       // Check if username is changing and available
       if (req.body.username && req.body.username !== user.username) {
-        const usernameExists = await User.findOne({ username: req.body.username });
+        const usernameExists = await User.findOne({ username: { $regex: new RegExp(`^${req.body.username.trim()}$`, 'i') } });
         if (usernameExists && usernameExists._id.toString() !== userId.toString()) {
           return res.status(400).json({ message: 'Username is already taken' });
         }
-        user.username = req.body.username;
+        user.username = req.body.username.trim();
       }
 
       user.fullName = req.body.fullName !== undefined ? req.body.fullName : user.fullName;
@@ -85,7 +85,16 @@ const updateProfile = async (req, res, next) => {
     // Memory fallback update
     const memUser = (memoryUsers && memoryUsers.get(String(userId))) || req.user;
     if (memUser) {
-      if (req.body.username) memUser.username = req.body.username;
+      if (req.body.username && req.body.username !== memUser.username) {
+        if (memoryUsers) {
+          for (const [id, u] of memoryUsers.entries()) {
+            if (String(id) !== String(userId) && u.username?.toLowerCase() === req.body.username.trim().toLowerCase()) {
+              return res.status(400).json({ message: 'Username is already taken' });
+            }
+          }
+        }
+        memUser.username = req.body.username.trim();
+      }
       if (req.body.fullName !== undefined) memUser.fullName = req.body.fullName;
       if (req.body.bio !== undefined) memUser.bio = req.body.bio;
       if (req.body.phone !== undefined) memUser.phone = req.body.phone;
@@ -106,6 +115,9 @@ const updateProfile = async (req, res, next) => {
     return res.status(404).json({ message: 'User not found' });
   } catch (error) {
     console.error('[updateProfile Error]', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Username is already taken' });
+    }
     next(error);
   }
 };
