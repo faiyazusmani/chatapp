@@ -777,7 +777,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
               value={inputText}
               onChange={handleInputChange}
               placeholder={editingMessage ? 'Edit message...' : replyingTo ? `Replying to @${replyingTo.sender?.username}...` : `Message #${room.name || 'room'}...`}
-              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#f3f4f6', fontSize: 13, fontFamily: 'Inter, sans-serif' }}
+              style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--input-text, #f3f4f6)', fontSize: 13, fontFamily: 'Inter, sans-serif' }}
             />
 
             {/* Mic */}

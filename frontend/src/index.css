@@ -1448,21 +1448,48 @@ button {
   max-width: fit-content;
 }
 
+:root {
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --icon-color: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --bubble-text-in: #e2e8f0;
+  --bubble-text-out: #ffffff;
+  --input-text: #f8fafc;
+  --placeholder-color: #94a3b8;
+  --header-text: #f8fafc;
+  --timestamp-color: #94a3b8;
+  --link-color: #60a5fa;
+  --reaction-bg: rgba(255, 255, 255, 0.08);
+  --text-drop-shadow: none;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--placeholder-color, #94a3b8);
+  opacity: 0.8;
+}
+
 .msg-bubble-in {
   background: var(--theme-msg-in-bg);
-  color: var(--theme-msg-in-text, var(--theme-text-color));
+  color: var(--bubble-text-in, var(--text-primary));
   border: var(--theme-bubble-border, 1px solid rgba(255, 255, 255, 0.08));
   box-shadow: var(--theme-bubble-shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
+  text-shadow: var(--text-drop-shadow, none);
 }
 
 .msg-bubble-out {
   background: var(--theme-msg-out-bg);
-  color: var(--theme-msg-out-text, #ffffff);
+  color: var(--bubble-text-out, #ffffff);
   box-shadow: var(--theme-accent-glow, 0 2px 8px rgba(0, 0, 0, 0.2));
 }
 
 body.theme-light {
-  color: var(--theme-text-color, #0f172a);
+  color: var(--text-primary, #0f172a);
+}
+
+body.theme-light .scrollzone {
+  color: var(--text-primary, #0f172a);
 }
 
 /* AMOled Theme Override */

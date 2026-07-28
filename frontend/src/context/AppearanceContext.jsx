@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import api from '../services/api';
 import { useAuth } from './useAuth';
 import { BUILTIN_THEMES, VISUAL_EFFECTS, getThemeById } from '../config/appearanceConfig';
+import {
+  parseColorToRGB,
+  calculateLuminance,
+  calculateContrastRatio,
+  getReadableTextColor,
+  getAdaptiveMutedText,
+  getAdaptiveBorder,
+  getAdaptiveTextShadow,
+  getAutoOverlayOpacity,
+} from '../utils/contrastEngine';
 
 const AppearanceContext = createContext();
 
@@ -89,42 +99,82 @@ export const AppearanceProvider = ({ children }) => {
     }
   }, [user, isAuthenticated]);
 
-  // Dynamic CSS Variables & WCAG Contrast Safeguard
+  // Dynamic CSS Variables & WCAG Smart Adaptive Contrast Safeguard
   useEffect(() => {
     const root = document.documentElement;
     const activeTheme = getThemeById(appearanceState.activeThemeId);
     const theme = activeTheme.theme;
+    const controls = appearanceState.controls || defaultControls;
 
-    // Detect light theme or bright background
-    const isLight = theme.isLight || (theme.chatBg && (theme.chatBg.startsWith('#f') || theme.chatBg.includes('253') || theme.chatBg.includes('245')));
-    const textColor = theme.textColor || (isLight ? '#0f172a' : '#f8fafc');
-    const textMuted = theme.textMuted || (isLight ? '#475569' : '#94a3b8');
-    const senderColor = theme.senderColor || (isLight ? '#2563eb' : '#60a5fa');
-    const headerText = theme.headerText || (isLight ? '#0f172a' : '#f8fafc');
+    // Calculate background luminance via Contrast Engine
+    const bgRgb = parseColorToRGB(theme.chatBg);
+    const bgLuminance = calculateLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
 
+    // Auto-overlay opacity boost if wallpaper/background is very bright
+    const effectiveOverlayOpacity = getAutoOverlayOpacity(
+      bgLuminance,
+      controls.brightness,
+      controls.overlayOpacity
+    );
+
+    // Text & Element Colors derived via WCAG Contrast Engine
+    const primaryText = theme.textColor || getReadableTextColor(theme.chatBg, '#0f172a', '#f8fafc');
+    const secondaryText = bgLuminance > 0.5 ? '#334155' : '#cbd5e1';
+    const mutedText = theme.textMuted || getAdaptiveMutedText(theme.chatBg);
+    const senderColor = theme.senderColor || (bgLuminance > 0.5 ? '#1d4ed8' : '#60a5fa');
+    const headerText = theme.headerText || getReadableTextColor(theme.headerBg || theme.sidebarBg, '#0f172a', '#f8fafc');
+    const linkColor = bgLuminance > 0.5 ? '#1d4ed8' : '#60a5fa';
+    const adaptiveBorder = getAdaptiveBorder(theme.chatBg);
+    const adaptiveTextShadow = getAdaptiveTextShadow(bgLuminance, controls.brightness);
+
+    // Bubble text calculations
+    const bubbleTextIn = theme.msgIncomingText || getReadableTextColor(theme.msgIncomingBg, '#0f172a', '#f8fafc');
+    const bubbleTextOut = theme.msgOutgoingText || getReadableTextColor(theme.msgOutgoingBg, '#ffffff', '#ffffff');
+
+    // Input text & placeholder
+    const inputRgb = parseColorToRGB(theme.inputBg || '#222530');
+    const inputText = getReadableTextColor(theme.inputBg || '#222530', '#0f172a', '#f8fafc');
+    const inputPlaceholder = calculateLuminance(inputRgb.r, inputRgb.g, inputRgb.b) > 0.5 ? '#64748b' : '#94a3b8';
+
+    // Theme CSS Variables
     root.style.setProperty('--theme-primary', theme.primaryColor);
     root.style.setProperty('--theme-msg-in-bg', theme.msgIncomingBg);
-    root.style.setProperty('--theme-msg-in-text', theme.msgIncomingText || (isLight ? '#0f172a' : '#e2e8f0'));
+    root.style.setProperty('--theme-msg-in-text', bubbleTextIn);
     root.style.setProperty('--theme-msg-out-bg', theme.msgOutgoingBg);
-    root.style.setProperty('--theme-msg-out-text', theme.msgOutgoingText || '#ffffff');
+    root.style.setProperty('--theme-msg-out-text', bubbleTextOut);
     root.style.setProperty('--theme-chat-bg', theme.chatBg);
     root.style.setProperty('--theme-sidebar-bg', theme.sidebarBg);
     root.style.setProperty('--theme-header-bg', theme.headerBg || theme.sidebarBg);
-    root.style.setProperty('--theme-input-bg', theme.inputBg || (isLight ? '#ffffff' : '#222530'));
+    root.style.setProperty('--theme-input-bg', theme.inputBg || (bgLuminance > 0.5 ? '#ffffff' : '#222530'));
     root.style.setProperty('--theme-radius', theme.borderRadius);
     root.style.setProperty('--theme-font', theme.fontFamily);
     root.style.setProperty('--theme-accent-glow', theme.accentGlow || 'none');
 
-    // Text Contrast & Accessibility Tokens
-    root.style.setProperty('--theme-text-color', textColor);
-    root.style.setProperty('--theme-text-muted', textMuted);
+    // Comprehensive Design Tokens
+    root.style.setProperty('--text-primary', primaryText);
+    root.style.setProperty('--text-secondary', secondaryText);
+    root.style.setProperty('--text-muted', mutedText);
+    root.style.setProperty('--icon-color', mutedText);
+    root.style.setProperty('--border-color', adaptiveBorder);
+    root.style.setProperty('--bubble-text-in', bubbleTextIn);
+    root.style.setProperty('--bubble-text-out', bubbleTextOut);
+    root.style.setProperty('--input-text', inputText);
+    root.style.setProperty('--placeholder-color', inputPlaceholder);
+    root.style.setProperty('--header-text', headerText);
+    root.style.setProperty('--timestamp-color', mutedText);
+    root.style.setProperty('--link-color', linkColor);
+    root.style.setProperty('--reaction-bg', bgLuminance > 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)');
+    root.style.setProperty('--text-drop-shadow', adaptiveTextShadow);
+
+    // Legacy Aliases
+    root.style.setProperty('--theme-text-color', primaryText);
+    root.style.setProperty('--theme-text-muted', mutedText);
     root.style.setProperty('--theme-sender-color', senderColor);
     root.style.setProperty('--theme-header-text', headerText);
-    root.style.setProperty('--theme-bubble-border', isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(255,255,255,0.08)');
-    root.style.setProperty('--theme-bubble-shadow', isLight ? '0 2px 10px rgba(0,0,0,0.08)' : '0 2px 10px rgba(0,0,0,0.35)');
+    root.style.setProperty('--theme-bubble-border', adaptiveBorder);
+    root.style.setProperty('--theme-bubble-shadow', bgLuminance > 0.5 ? '0 2px 10px rgba(0,0,0,0.08)' : '0 2px 10px rgba(0,0,0,0.35)');
 
-    // Wallpaper Controls
-    const controls = appearanceState.controls || defaultControls;
+    // Wallpaper Controls & Auto-Boost Overlay
     root.style.setProperty('--wallpaper-opacity', controls.opacity);
     root.style.setProperty('--wallpaper-blur', `${controls.blur}px`);
     root.style.setProperty('--wallpaper-brightness', `${controls.brightness}%`);
@@ -133,12 +183,12 @@ export const AppearanceProvider = ({ children }) => {
     root.style.setProperty('--wallpaper-scale', `${controls.scale / 100}`);
     root.style.setProperty('--wallpaper-fit-mode', controls.fitMode);
     root.style.setProperty('--wallpaper-overlay-color', controls.overlayColor);
-    root.style.setProperty('--wallpaper-overlay-opacity', controls.overlayOpacity);
+    root.style.setProperty('--wallpaper-overlay-opacity', effectiveOverlayOpacity);
 
-    // Apply Theme Class
+    // Apply Active Theme Class
     document.body.className = '';
     document.body.classList.add(`theme-${appearanceState.activeThemeId}`);
-    if (isLight) document.body.classList.add('theme-light');
+    if (bgLuminance > 0.5) document.body.classList.add('theme-light');
   }, [appearanceState]);
 
   // Persist Appearance State

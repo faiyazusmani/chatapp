@@ -106,8 +106,8 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
             AL
           </div>
           <div>
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--theme-sender-color, #60a5fa)', marginRight: 6 }}>Alex</span>
-            <span style={{ fontSize: 9, color: 'var(--theme-text-muted, #9ca3af)' }}>10:42 AM</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--link-color, #60a5fa)', marginRight: 6 }}>Alex</span>
+            <span style={{ fontSize: 9, color: 'var(--timestamp-color, #9ca3af)' }}>10:42 AM</span>
             <div
               className="msg-bubble msg-bubble-in"
               style={{
@@ -115,7 +115,7 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
                 marginTop: 2,
                 padding: '8px 12px',
                 borderRadius: 'var(--theme-radius)',
-                color: 'var(--theme-msg-in-text, var(--theme-text-color))',
+                color: 'var(--bubble-text-in, var(--text-primary))',
               }}
             >
               Hey! Check out this new custom theme setup 🎨✨
@@ -125,14 +125,14 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
 
         {/* Outgoing Message */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <span style={{ fontSize: 9, color: 'var(--theme-text-muted, #9ca3af)', marginBottom: 2 }}>10:43 AM</span>
+          <span style={{ fontSize: 9, color: 'var(--timestamp-color, #9ca3af)', marginBottom: 2 }}>10:43 AM</span>
           <div
             className="msg-bubble msg-bubble-out"
             style={{
               fontSize: 12,
               padding: '8px 12px',
               borderRadius: 'var(--theme-radius)',
-              color: 'var(--theme-msg-out-text, #ffffff)',
+              color: 'var(--bubble-text-out, #ffffff)',
             }}
           >
             Looks super clean and 60 FPS smooth! 🔥
@@ -147,7 +147,7 @@ export default function AppearanceLivePreview({ targetRoomId, roomName }) {
           <input
             readOnly
             value="Type a message..."
-            style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--theme-text-muted, #9ca3af)', fontSize: 11, outline: 'none' }}
+            style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--placeholder-color, #9ca3af)', fontSize: 11, outline: 'none' }}
           />
           <span style={{ fontSize: 12 }}>🚀</span>
         </div>
