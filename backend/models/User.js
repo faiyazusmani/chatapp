@@ -64,6 +64,33 @@ const userSchema = new mongoose.Schema(
       sidebarBg: { type: String, default: '#1a1c23' },
       borderRadius: { type: String, default: '12px' },
       fontFamily: { type: String, default: 'Inter' }
+    },
+    // Chat Personality Studio Data
+    personality: {
+      activePersonalityId: { type: String, default: 'default' },
+      globalWallpaperUrl: { type: String, default: '' },
+      customWallpapers: [
+        {
+          id: { type: String },
+          url: { type: String },
+          name: { type: String },
+          isFavorite: { type: Boolean, default: false },
+          collectionName: { type: String, default: 'General' },
+          createdAt: { type: Date, default: Date.now }
+        }
+      ],
+      perChatWallpapers: { type: Map, of: Object, default: {} },
+      controls: {
+        opacity: { type: Number, default: 0.85 },
+        blur: { type: Number, default: 0 },
+        brightness: { type: Number, default: 100 },
+        contrast: { type: Number, default: 100 },
+        saturation: { type: Number, default: 100 },
+        scale: { type: Number, default: 100 },
+        fitMode: { type: String, default: 'cover' },
+        overlayColor: { type: String, default: '#000000' },
+        overlayOpacity: { type: Number, default: 0.2 }
+      }
     }
   },
   {

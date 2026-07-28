@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
+import { useWallpaper } from '../context/WallpaperContext';
 import api from '../services/api';
 import VoiceCallModal from './VoiceCallModal';
 import VideoCallModal from './VideoCallModal';
@@ -10,9 +11,12 @@ import PresenceBadge from './common/PresenceBadge';
 import VoiceRecorder from './VoiceRecorder';
 import AudioPlayer from './AudioPlayer';
 import UserProfileModal from './profile/UserProfileModal';
+import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
+import AnimatedBackgroundLayer from './personality/AnimatedBackgroundLayer';
 
 export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSidebar }) {
   const { user } = useAuth();
+  const { getActiveWallpaperForRoom, personalityState } = useWallpaper();
 
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -55,6 +59,9 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
   // Profile Modal State
   const [targetProfileId, setTargetProfileId] = useState(null);
+
+  // Chat Personality Studio State
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -444,13 +451,32 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             <span style={{ position: 'absolute', bottom: 0, right: 0, width: 8, height: 8, borderRadius: '50%', background: '#22c55e', border: '1.5px solid #1c1f28' }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#f3f4f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
-            {room.code && <div style={{ fontSize: 10, color: '#6b7280' }}>Code: #{room.code}</div>}
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--theme-header-text, #f3f4f6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || 'Note to myself'}</div>
+            {room.code && <div style={{ fontSize: 10, color: 'var(--theme-text-muted, #6b7280)' }}>Code: #{room.code}</div>}
           </div>
         </div>
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setIsStudioOpen(true)}
+            title="Chat Personality Studio"
+            style={{
+              background: 'rgba(124, 58, 237, 0.2)',
+              border: '1px solid #7c3aed',
+              borderRadius: 6,
+              color: '#c084fc',
+              padding: '5px 10px',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            ✨ Studio
+          </button>
           <button onClick={handleStartVoiceCall} title="Voice Call" style={{ background: '#222530', border: '1px solid #2d3241', borderRadius: 6, color: '#d1d5db', padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>
             📞 Voice
           </button>
@@ -470,7 +496,44 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       </div>
 
       {/* Messages Feed Area */}
-      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="scrollzone" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, position: 'relative' }}>
+        {/* Dynamic Wallpaper Background Layer */}
+        {getActiveWallpaperForRoom(roomId) && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url(${getActiveWallpaperForRoom(roomId)})`,
+              backgroundSize: personalityState?.controls?.fitMode === 'contain' ? 'contain' : personalityState?.controls?.fitMode === 'fill' ? '100% 100%' : 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              opacity: personalityState?.controls?.opacity ?? 0.85,
+              filter: `blur(${personalityState?.controls?.blur || 0}px) brightness(${personalityState?.controls?.brightness || 100}%) contrast(${personalityState?.controls?.contrast || 100}%) saturate(${personalityState?.controls?.saturation || 100}%)`,
+              transform: `scale(${(personalityState?.controls?.scale || 100) / 100})`,
+              transformOrigin: 'center center',
+              transition: 'all 0.15s ease',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        {/* Overlay Layer */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: personalityState?.controls?.overlayColor || '#000000',
+            opacity: personalityState?.controls?.overlayOpacity ?? 0.2,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
+        {/* GPU Animated Particles Layer */}
+        <AnimatedBackgroundLayer />
         {/* History Banner */}
         <div style={{ textAlign: 'center', color: '#6b7280', fontSize: 11, margin: '8px 0 4px' }}>
           There is no more history
@@ -523,11 +586,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                 </div>
                 <div className="msg-content-wrap" style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#60a5fa' }}>{senderName}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--theme-sender-color, #60a5fa)', textShadow: 'var(--theme-text-shadow, none)' }}>{senderName}</span>
                     {msg.sender?.customStatus?.emoji && (
                       <span style={{ fontSize: 11 }} title={msg.sender?.customStatus?.text}>{msg.sender.customStatus.emoji}</span>
                     )}
-                    <span style={{ fontSize: 11, color: '#6b7280' }}>{formatTime(msg.createdAt)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--theme-text-muted, #9ca3af)', textShadow: 'var(--theme-text-shadow, none)' }}>{formatTime(msg.createdAt)}</span>
                   </div>
 
                   {/* Image Attachment */}
@@ -545,7 +608,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                   {msg.fileUrl && msg.fileType !== 'image' && msg.fileType !== 'audio' && (
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--theme-msg-in-bg)', borderRadius: 'var(--theme-radius)', border: '1px solid var(--border)', width: 'fit-content' }}>
                       <span style={{ fontSize: 20 }}>📄</span>
-                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa', fontSize: 13, textDecoration: 'none' }}>
+                      <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--theme-sender-color, #60a5fa)', fontSize: 13, textDecoration: 'none' }}>
                         {msg.fileName || 'Download File'}
                       </a>
                     </div>
@@ -553,7 +616,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
                   {/* Message Text */}
                   {msg.content && msg.fileType !== 'call' && (
-                    <div className={isMe ? 'msg-bubble msg-bubble-out' : 'msg-bubble msg-bubble-in'} style={{ fontSize: 13, color: 'var(--text)', marginTop: 4, lineHeight: '1.4', wordBreak: 'break-word' }}>
+                    <div className={isMe ? 'msg-bubble msg-bubble-out' : 'msg-bubble msg-bubble-in'} style={{ fontSize: 13, color: isMe ? 'var(--theme-msg-out-text, #ffffff)' : 'var(--theme-msg-in-text, var(--theme-text-color))', marginTop: 4, lineHeight: '1.4', wordBreak: 'break-word' }}>
                       {msg.content}
                     </div>
                   )}
@@ -764,6 +827,14 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           onClose={() => setTargetProfileId(null)} 
         />
       )}
+
+      {/* Chat Personality Studio Modal */}
+      <ChatPersonalityStudioModal
+        isOpen={isStudioOpen}
+        onClose={() => setIsStudioOpen(false)}
+        targetRoomId={roomId}
+        roomName={room.name}
+      />
     </div>
   );
 }

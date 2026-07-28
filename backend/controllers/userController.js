@@ -154,8 +154,54 @@ const updateTheme = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Update user personality studio settings
+ * @route   PUT /api/users/personality
+ * @access  Private
+ */
+const updatePersonality = async (req, res, next) => {
+  try {
+    const userId = req.user?._id || req.user?.id;
+    let user = null;
+
+    if (isDBConnected() && mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId);
+    }
+
+    if (user) {
+      if (req.body.personality) {
+        user.personality = { ...user.personality, ...req.body.personality };
+      }
+
+      const updatedUser = await user.save();
+      const userObj = updatedUser.toObject();
+      delete userObj.password;
+
+      return res.json(userObj.personality);
+    }
+
+    // Memory fallback update
+    const memUser = (memoryUsers && memoryUsers.get(String(userId))) || req.user;
+    if (memUser) {
+      if (req.body.personality) {
+        memUser.personality = { ...(memUser.personality || {}), ...req.body.personality };
+      }
+      if (memoryUsers) {
+        memoryUsers.set(String(userId), memUser);
+      }
+      return res.json(memUser.personality || req.body.personality);
+    }
+
+    return res.status(404).json({ message: 'User not found' });
+  } catch (error) {
+    console.error('[updatePersonality Error]', error);
+    next(error);
+  }
+};
+
 module.exports = {
   getUserById,
   updateProfile,
-  updateTheme
+  updateTheme,
+  updatePersonality
 };

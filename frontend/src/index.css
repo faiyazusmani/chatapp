@@ -1450,12 +1450,19 @@ button {
 
 .msg-bubble-in {
   background: var(--theme-msg-in-bg);
-  color: var(--text);
+  color: var(--theme-msg-in-text, var(--theme-text-color));
+  border: var(--theme-bubble-border, 1px solid rgba(255, 255, 255, 0.08));
+  box-shadow: var(--theme-bubble-shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
 }
 
 .msg-bubble-out {
   background: var(--theme-msg-out-bg);
-  color: #fff;
+  color: var(--theme-msg-out-text, #ffffff);
+  box-shadow: var(--theme-accent-glow, 0 2px 8px rgba(0, 0, 0, 0.2));
+}
+
+body.theme-light {
+  color: var(--theme-text-color, #0f172a);
 }
 
 /* AMOled Theme Override */
@@ -1478,4 +1485,41 @@ body.theme-glass .ws-sidebar {
 body.theme-glass .msg-bubble {
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+/* ============================================================
+   CHAT PERSONALITY STUDIO DESIGN TOKENS & ANIMATIONS
+   ============================================================ */
+:root {
+  --wallpaper-opacity: 0.85;
+  --wallpaper-blur: 0px;
+  --wallpaper-brightness: 100%;
+  --wallpaper-contrast: 100%;
+  --wallpaper-saturation: 100%;
+  --wallpaper-scale: 1;
+  --wallpaper-fit-mode: cover;
+  --wallpaper-overlay-color: #000000;
+  --wallpaper-overlay-opacity: 0.2;
+}
+
+/* Personality Animations & Glass overrides */
+body[class*="personality-"] .scrollzone {
+  position: relative;
+}
+
+body.personality-glass .scrollzone {
+  backdrop-filter: blur(12px);
+}
+
+body.personality-gaming .msg-bubble {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 15px var(--theme-primary); }
+  50% { box-shadow: 0 0 25px var(--theme-primary); }
+}
+
+.personality-studio-modal {
+  font-family: var(--theme-font), sans-serif;
 }

@@ -4,6 +4,7 @@ import { useAuth } from '../context/useAuth';
 import UserProfileModal from './profile/UserProfileModal';
 import StatusPickerModal from './profile/StatusPickerModal';
 import ThemeSettingsModal from './profile/ThemeSettingsModal';
+import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
 
 export default function Sidebar({
   activeTab = 'chats',
@@ -24,6 +25,7 @@ export default function Sidebar({
   const [showProfile, setShowProfile] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showThemeSettings, setShowThemeSettings] = useState(false);
+  const [showPersonalityStudio, setShowPersonalityStudio] = useState(false);
 
   // Derive initial/avatar from name
   const getUserInitials = (name) => {
@@ -294,6 +296,24 @@ export default function Sidebar({
                   👤 Profile
                 </button>
                 <button
+                  onClick={() => { setShowUserMenu(false); setShowPersonalityStudio(true); }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#c084fc',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginBottom: 4,
+                    fontWeight: 600
+                  }}
+                >
+                  ✨ Personality Studio
+                </button>
+                <button
                   onClick={() => { setShowUserMenu(false); setShowThemeSettings(true); }}
                   style={{
                     width: '100%',
@@ -537,6 +557,11 @@ export default function Sidebar({
       {showThemeSettings && (
         <ThemeSettingsModal onClose={() => setShowThemeSettings(false)} />
       )}
+
+      <ChatPersonalityStudioModal
+        isOpen={showPersonalityStudio}
+        onClose={() => setShowPersonalityStudio(false)}
+      />
     </aside>
     </>
   );
