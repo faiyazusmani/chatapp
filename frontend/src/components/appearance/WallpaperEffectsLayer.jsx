@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 import { EffectManager } from '../../utils/effects/EffectManager';
 
@@ -27,6 +27,9 @@ export default function WallpaperEffectsLayer() {
         managerRef.current = null;
       }
     };
+    // Granular field deps are intentional: avoids re-running the effect when
+    // unrelated appearance fields change (animSettings identity changes often).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectId, animSettings.speed, animSettings.density, animSettings.batterySaver, animSettings.reduceMotion]);
 
   if (effectId === 'none' || animSettings.reduceMotion) return null;

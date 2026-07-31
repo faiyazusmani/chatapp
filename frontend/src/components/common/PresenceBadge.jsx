@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { usePresence } from '../../hooks/usePresence';
 import { formatLastSeen } from '../../utils/dateFormatter';
 

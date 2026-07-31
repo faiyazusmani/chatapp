@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useAppearance } from '../../context/AppearanceContext';
 
 /* Shared inline style objects — all values from Design System tokens */

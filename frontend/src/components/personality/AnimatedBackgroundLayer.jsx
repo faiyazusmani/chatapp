@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWallpaper } from '../../context/WallpaperContext';
 
 export default function AnimatedBackgroundLayer() {

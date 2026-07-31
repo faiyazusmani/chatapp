@@ -23,21 +23,46 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      // Password is required for local/provider=='local' users, optional for OAuth users
+      required: [function () { return this.provider === 'local'; }, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters long']
     },
     avatar: {
       type: String,
       default: 'https://api.dicebear.com/7.x/bottts/svg?seed=ChatUser'
     },
+    // Authentication provider: 'local' for email/password, 'google' for Google OAuth
+    provider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local'
+    },
+    // Google account identifier (sub) when user signs in with Google
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
     status: {
       type: String,
-      enum: ['online', 'offline', 'away'],
+      enum: ['online', 'offline', 'away', 'busy', 'invisible'],
       default: 'offline'
     },
     lastSeen: {
       type: Date,
       default: Date.now
+    },
+    // Privacy & notification preferences (Gajim-style account settings)
+    privacy: {
+      showOnline: { type: Boolean, default: true },
+      showLastSeen: { type: Boolean, default: true },
+      showReadReceipts: { type: Boolean, default: true },
+      allowMessagesFrom: { type: String, enum: ['everyone', 'contacts', 'nobody'], default: 'everyone' }
+    },
+    notificationPrefs: {
+      soundEnabled: { type: Boolean, default: true },
+      desktopEnabled: { type: Boolean, default: true },
+      notifyOnMessage: { type: Boolean, default: true }
     },
     customStatus: {
       text: { type: String, maxlength: 100, default: '' },
@@ -111,6 +136,10 @@ userSchema.pre('save', async function (next) {
 
 // Method to compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password) {
+    // No password set (OAuth user)
+    return false;
+  }
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

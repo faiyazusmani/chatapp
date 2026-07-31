@@ -1,0 +1,36 @@
+# ChatApp — full-stack deployment
+#   backend : Node/Express + Socket.io  (port 5000)
+#   nginx   : serves the built frontend + reverse-proxies /api and /socket.io
+#
+# Usage:
+#   npm run build:frontend   # build the SPA into frontend/dist
+#   docker compose up -d --build
+#   → app at http://localhost
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend

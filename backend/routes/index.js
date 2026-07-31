@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authRoutes = require('./authRoutes');
+const googleAuthRoutes = require('./googleAuthRoutes');
 const userRoutes = require('./userRoutes');
 const roomRoutes = require('./roomRoutes');
 const messageRoutes = require('./messageRoutes');
@@ -17,6 +18,8 @@ router.get('/health', (req, res) => {
 
 // Authentication routes
 router.use('/auth', authRoutes);
+// Google OAuth route (POST /api/auth/google)
+router.use('/auth', googleAuthRoutes);
 
 // User Profile routes
 router.use('/users', userRoutes);

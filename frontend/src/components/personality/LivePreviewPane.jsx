@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useWallpaper } from '../../context/WallpaperContext';
 
 export default function LivePreviewPane() {

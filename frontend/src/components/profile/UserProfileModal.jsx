@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import ImageCropperModal from './ImageCropperModal';
 
 export default function UserProfileModal({ targetUserId, onClose }) {
-  const { user: currentUser, updateLocalUser, token } = useAuth();
+  const { user: currentUser, updateLocalUser } = useAuth();
   
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +91,7 @@ export default function UserProfileModal({ targetUserId, onClose }) {
       formData.append('file', croppedBlob, 'cropped.jpg');
       
       const uploadRes = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
       const fileUrl = uploadRes.data.url;

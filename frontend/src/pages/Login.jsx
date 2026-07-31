@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
+import { GoogleLogin } from '@react-oauth/google';
+import api from '../services/api';
+import { connectSocket } from '../services/socket';
+
+
+
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -47,6 +53,39 @@ export default function Login() {
       navigate(redirectPath, { replace: true });
     }
   };
+
+  // Google OAuth flow
+  const googleSuccessHandler = async (credentialResponse) => {
+    const idToken = credentialResponse?.credential;
+    if (!idToken) {
+      setError('Google sign-in failed. No credential returned.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await api.post('/auth/google', { idToken });
+      const userData = { ...response.data };
+      delete userData.token; // token lives in HttpOnly cookie
+
+      // Server stores JWT in an HttpOnly cookie. Keep a lightweight local user cache.
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      // Connect socket (server will authenticate via cookie) and redirect
+      connectSocket();
+      window.location.href = redirectPath;
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Google login failed.';
+      setError(errorMessage);
+      } finally {
+        setSubmitting(false);
+      }
+  };
+
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+
 
   const activeError = validationError || serverError;
 
@@ -105,6 +144,24 @@ export default function Login() {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <GoogleLogin
+              onSuccess={(credentialResponse) => {
+                setValidationError('');
+                setError(null);
+                googleSuccessHandler(credentialResponse);
+              }}
+              onError={() => setError('Google Sign-In failed. Likely causes: wrong or missing VITE_GOOGLE_CLIENT_ID, or the OAuth Client does not list this origin (http://localhost:5175) in Authorized JavaScript origins. Update Google Cloud Console and restart Vite.')}
+            />
+            {!import.meta.env.PROD && (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                Client ID: {clientId ? `${clientId.slice(0, 20)}...` : '(not set)'}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="auth-footer">
           Don&apos;t have an account? <Link to="/register">Create Account</Link>

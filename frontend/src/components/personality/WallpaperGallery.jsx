@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useWallpaper } from '../../context/WallpaperContext';
 
 const PRESET_WALLPAPERS = [

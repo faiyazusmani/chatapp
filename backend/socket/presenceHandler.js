@@ -1,18 +1,18 @@
 const User = require('../models/User');
+const logger = require('../utils/logger');
 
 // Track online users mapping userId -> Set of socket IDs
 const onlineUsers = new Map();
 
 /**
- * Handles presence (Online/Offline/Away) updates.
+ * Handles presence (Online/Offline/Away/Busy/Invisible) updates.
  * @param {import('socket.io').Server} io
  * @param {import('socket.io').Socket} socket
  */
 module.exports = (io, socket) => {
-  const userId = socket.user?._id || socket.user?.id;
+  const userId = socket.user?._id ? socket.user._id.toString() : socket.user?.id;
 
   if (userId) {
-    // Add to online map
     if (!onlineUsers.has(userId)) {
       onlineUsers.set(userId, new Set());
     }
@@ -24,21 +24,35 @@ module.exports = (io, socket) => {
     }
   }
 
-  // Handle Away
+  // Away
   socket.on('user_away', () => {
-    if (userId) {
-      updateStatus(userId, 'away');
-    }
+    if (userId) updateStatus(userId, 'away');
   });
 
-  // Handle Active (Return from Away)
+  // Active (Return from Away)
   socket.on('user_active', () => {
-    if (userId) {
-      updateStatus(userId, 'online');
+    if (userId) updateStatus(userId, 'online');
+  });
+
+  // Busy (Do Not Disturb — Gajim-style)
+  socket.on('user_busy', () => {
+    if (userId) updateStatus(userId, 'busy');
+  });
+
+  // Invisible (stay connected but appear offline)
+  socket.on('user_invisible', () => {
+    if (userId) updateStatus(userId, 'invisible');
+  });
+
+  // Custom presence broadcast (status + text)
+  socket.on('presence_update', ({ status }) => {
+    if (!userId) return;
+    if (['online', 'away', 'busy', 'invisible', 'offline'].includes(status)) {
+      updateStatus(userId, status);
     }
   });
 
-  // Handle Disconnect
+  // Disconnect
   socket.on('disconnect', () => {
     if (userId && onlineUsers.has(userId)) {
       const userSockets = onlineUsers.get(userId);
@@ -59,20 +73,19 @@ module.exports = (io, socket) => {
       if (lastSeen) {
         updateData.lastSeen = lastSeen;
       }
-      
-      // We only update if DB is connected (safeguard)
+
       if (require('mongoose').connection.readyState === 1) {
         await User.findByIdAndUpdate(uid, updateData);
       }
-      
+
       io.emit('user_status_changed', {
         userId: uid,
         status,
         lastSeen: lastSeen || Date.now()
       });
-      console.log(`[Presence] User ${uid} is now ${status}`);
+      logger.socket(`User ${uid} is now ${status}`);
     } catch (err) {
-      console.error('[Presence] Error updating status:', err);
+      logger.error(`[Presence] Error updating status: ${err.message}`);
     }
   }
 };

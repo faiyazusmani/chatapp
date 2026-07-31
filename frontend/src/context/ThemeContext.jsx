@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from './useAuth';
 
@@ -17,6 +17,14 @@ const defaultTheme = {
   fontFamily: 'Inter',
 };
 
+// Surface tokens that must flip with the color mode (dark ↔ light).
+// These are intentionally NOT set inline in light mode so the stylesheet
+// `body.theme-light` palette can take over with correct contrast.
+const SURFACE_TOKENS = ['--theme-chat-bg', '--theme-sidebar-bg', '--theme-msg-in-bg'];
+
+const resolveSystemMode = () =>
+  window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+
 export const ThemeProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
   const [theme, setThemeState] = useState(() => {
@@ -32,6 +40,25 @@ export const ThemeProvider = ({ children }) => {
     return defaultTheme;
   });
 
+  // Color mode: 'dark' | 'light' | 'system' (persisted separately)
+  const [mode, setModeState] = useState(() => {
+    const saved = localStorage.getItem('gajim_theme_mode');
+    return saved === 'light' || saved === 'system' ? saved : 'dark';
+  });
+
+  const [systemMode, setSystemMode] = useState(resolveSystemMode);
+
+  // Follow OS preference when mode === 'system'
+  useEffect(() => {
+    if (mode !== 'system') return undefined;
+    const mql = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = (e) => setSystemMode(e.matches ? 'light' : 'dark');
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [mode]);
+
+  const resolvedMode = mode === 'system' ? systemMode : mode;
+
   // 2. Sync with User data from MongoDB on login
   useEffect(() => {
     if (isAuthenticated && user?.theme) {
@@ -45,19 +72,28 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--theme-primary', theme.primaryColor);
-    root.style.setProperty('--theme-msg-in-bg', theme.msgIncomingBg);
     root.style.setProperty('--theme-msg-out-bg', theme.msgOutgoingBg);
-    root.style.setProperty('--theme-chat-bg', theme.chatBg);
-    root.style.setProperty('--theme-sidebar-bg', theme.sidebarBg);
     root.style.setProperty('--theme-radius', theme.borderRadius);
     root.style.setProperty('--theme-font', theme.fontFamily);
+
+    if (resolvedMode === 'light') {
+      // Let the stylesheet's light palette control surfaces for contrast.
+      SURFACE_TOKENS.forEach((t) => root.style.removeProperty(t));
+    } else {
+      root.style.setProperty('--theme-chat-bg', theme.chatBg);
+      root.style.setProperty('--theme-sidebar-bg', theme.sidebarBg);
+      root.style.setProperty('--theme-msg-in-bg', theme.msgIncomingBg);
+    }
 
     // Apply special classes to body for complex themes
     document.body.className = ''; // reset
     if (theme.preset === 'glassmorphism') document.body.classList.add('theme-glass');
     if (theme.preset === 'amoled') document.body.classList.add('theme-amoled');
-    
-  }, [theme]);
+    if (resolvedMode === 'light') document.body.classList.add('theme-light');
+
+    // Native form controls + scrollbars follow the mode
+    root.style.colorScheme = resolvedMode;
+  }, [theme, resolvedMode]);
 
   // Update theme locally and persist to MongoDB
   const updateTheme = useCallback(async (newThemeUpdates) => {
@@ -86,8 +122,17 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  // Toggle color mode: 'dark' | 'light' | 'system'
+  const setMode = useCallback((nextMode) => {
+    if (!['dark', 'light', 'system'].includes(nextMode)) return;
+    setModeState(nextMode);
+    localStorage.setItem('gajim_theme_mode', nextMode);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, updateTheme, resetTheme, defaultTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, updateTheme, resetTheme, defaultTheme, mode, setMode, resolvedMode }}
+    >
       {children}
     </ThemeContext.Provider>
   );

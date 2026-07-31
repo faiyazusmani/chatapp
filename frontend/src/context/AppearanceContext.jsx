@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useAuth } from './useAuth';
-import { BUILTIN_THEMES, VISUAL_EFFECTS, getThemeById } from '../config/appearanceConfig';
+import { getThemeById } from '../config/appearanceConfig';
 import {
   parseColorToRGB,
   calculateLuminance,
-  calculateContrastRatio,
   getReadableTextColor,
   getAdaptiveMutedText,
   getAdaptiveBorder,

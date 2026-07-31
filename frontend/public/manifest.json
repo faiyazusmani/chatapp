@@ -1,0 +1,19 @@
+{
+  "name": "ChatRoom - Real-Time Chat App",
+  "short_name": "ChatRoom",
+  "description": "Real-time chat application with rooms, voice/video calls",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

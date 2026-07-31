@@ -5,7 +5,8 @@ const roomSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Room name is required'],
-      trim: true
+      trim: true,
+      maxlength: [80, 'Room name must be under 80 characters']
     },
     code: {
       type: String,
@@ -21,7 +22,8 @@ const roomSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      default: ''
+      default: '',
+      maxlength: [300, 'Description must be under 300 characters']
     },
     isPrivate: {
       type: Boolean,
@@ -32,17 +34,52 @@ const roomSchema = new mongoose.Schema(
       ref: 'User',
       required: true
     },
+    // Gajim-style group chat roles: owner + admins (moderators)
+    admins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
       }
-    ]
+    ],
+    icon: {
+      type: String,
+      default: ''
+    },
+    // Public invite link token (e.g. /join/<inviteCode>)
+    inviteCode: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    maxMembers: {
+      type: Number,
+      default: 500
+    },
+    // Soft-delete flag for rooms (keeps message history references valid)
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedAt: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: true
   }
 );
+
+// Indexes
+roomSchema.index({ isPrivate: 1, category: 1, createdAt: -1 });
+roomSchema.index({ members: 1 });
+roomSchema.index({ name: 'text', description: 'text' });
 
 const Room = mongoose.model('Room', roomSchema);
 

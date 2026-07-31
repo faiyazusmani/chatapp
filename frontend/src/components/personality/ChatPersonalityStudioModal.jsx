@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useWallpaper } from '../../context/WallpaperContext';
 import { CHAT_PERSONALITIES } from '../../utils/chatPersonalities';
 import WallpaperControls from './WallpaperControls';

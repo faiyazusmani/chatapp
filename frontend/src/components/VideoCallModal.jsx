@@ -56,7 +56,8 @@ export default function VideoCallModal({
   isIncomingCall,
   incomingCaller,
   incomingOffer,
-  onCloseCall
+  onCloseCall,
+  callerSocketId
 }) {
   const { user } = useAuth();
 
@@ -76,15 +77,20 @@ export default function VideoCallModal({
   const screenStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
+  const iceCheckingTimerRef = useRef(null);
   // Store target peer socket ID for direct signaling (not room-broadcast)
   const targetSocketIdRef = useRef(null);
 
-  const log = (tag, ...args) => console.log(`[Video ${tag}]`, ...args);
+  // Dev-only logging — stripped from production builds (import.meta.env.DEV is
+  // statically replaced by Vite, so the branch is tree-shaken)
+  const log = (tag, ...args) => {
+    if (import.meta.env.DEV) console.log(`[Video ${tag}]`, ...args);
+  };
 
   // Create & initialize WebRTC peer connection
   const createPeerConnection = () => {
     const ICE_SERVERS = getIceServers();
-    console.log("ICE_SERVERS =", ICE_SERVERS);
+    if (import.meta.env.DEV) console.log('ICE_SERVERS =', ICE_SERVERS);
     log('PC', 'Creating RTCPeerConnection with STUN+TURN ICE servers');
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
@@ -138,14 +144,15 @@ export default function VideoCallModal({
       
       if (s === 'checking') {
         // Set a timer to fail/restart if stuck in checking
-        window.iceCheckingTimer = setTimeout(() => {
+        iceCheckingTimerRef.current = setTimeout(() => {
           if (pc.iceConnectionState === 'checking') {
             log('iceConnectionState', 'STUCK IN CHECKING for 12s — triggering ICE restart');
             pc.restartIce();
           }
         }, 12000);
       } else {
-        clearTimeout(window.iceCheckingTimer);
+        clearTimeout(iceCheckingTimerRef.current);
+        iceCheckingTimerRef.current = null;
       }
 
       if (s === 'failed') {
@@ -490,12 +497,17 @@ export default function VideoCallModal({
     if (isIncomingCall) {
       setCallState('incoming');
       setPeerStatus(`Incoming video call from ${incomingCaller?.username || 'Room Member'}`);
+      // KEY FIX: Set target socket ID immediately from prop so signaling works even if
+      // the incoming event fired before modal mounted
+      if (callerSocketId) {
+        targetSocketIdRef.current = callerSocketId;
+      }
     } else {
       startCall();
     }
 
     // Signaling socket event listeners
-    const handleVideoCallIncoming = ({ offer, caller, fromSocket }) => {
+    const handleVideoCallIncoming = ({ caller, fromSocket }) => {
       log('Incoming', 'Video call from socket:', fromSocket, 'user:', caller?.username);
       targetSocketIdRef.current = fromSocket;
     };
@@ -570,6 +582,8 @@ export default function VideoCallModal({
     socket.on('video_call_ended', handleVideoCallEnded);
 
     return () => {
+      clearTimeout(iceCheckingTimerRef.current);
+      handleEndCall();
       socket.off('video_call_incoming', handleVideoCallIncoming);
       socket.off('video_call_answered', handleVideoCallAnswered);
       socket.off('ice_candidate', handleIceCandidate);

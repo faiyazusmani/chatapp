@@ -1,18 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function JoinRoomModal({ isOpen, onClose, onJoinRoom }) {
+export default function JoinRoomModal({ isOpen, onClose, onJoinRoom, roomName }) {
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
+
+  // Auto-format: uppercase + remove spaces
+  useEffect(() => {
+    setRoomCode((prev) => prev.toUpperCase().replace(/\s+/g, ''));
+  }, [roomCode]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!roomCode.trim()) {
+    const code = roomCode.trim();
+    if (!code) {
       setError('Please enter a valid Room Code or ID');
       return;
     }
-    onJoinRoom(roomCode.trim());
+    // Validate format: ROOM-XXXX or alphanumeric 4-12 chars
+    if (!/^ROOM-[A-Z0-9]{4}$/.test(code) && !/^[A-Z0-9]{4,12}$/.test(code)) {
+      setError('Invalid format. Use ROOM-XXXX or custom code (4-12 chars)');
+      return;
+    }
+    onJoinRoom(code);
     setRoomCode('');
     setError('');
     onClose();
@@ -62,7 +73,9 @@ export default function JoinRoomModal({ isOpen, onClose, onJoinRoom }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
               </svg>
-              Ask the room owner to share their Room Code or paste it below.
+              {roomName
+                ? `"${roomName}" is a private room. Enter its code below to join.`
+                : 'Ask the room owner to share their Room Code or paste it below.'}
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

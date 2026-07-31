@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/useAuth';
+import { SkeletonCallHistory } from '../components/SkeletonLoaders';
 
 export default function CallHistoryPage() {
   const { user } = useAuth();
@@ -48,9 +49,7 @@ export default function CallHistoryPage() {
 
   if (loading) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#181a20', color: '#6b7280' }}>
-        Loading Call History...
-      </div>
+      <SkeletonCallHistory />
     );
   }
 

@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { socket } from '../services/socket';
+import { socket, onSocketStatusChange, isSocketConnected, registerActiveRoom, unregisterActiveRoom } from '../services/socket';
 import { useAuth } from '../context/useAuth';
-import { useWallpaper } from '../context/WallpaperContext';
 import { useAppearance } from '../context/AppearanceContext';
 import { themeSoundManager } from '../utils/themeSoundManager';
 import api from '../services/api';
@@ -13,14 +12,12 @@ import PresenceBadge from './common/PresenceBadge';
 import VoiceRecorder from './VoiceRecorder';
 import AudioPlayer from './AudioPlayer';
 import UserProfileModal from './profile/UserProfileModal';
-import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
-import AnimatedBackgroundLayer from './personality/AnimatedBackgroundLayer';
 import AppearanceStudioModal from './appearance/AppearanceStudioModal';
 import WallpaperEffectsLayer from './appearance/WallpaperEffectsLayer';
+import { SkeletonMessageList } from './SkeletonLoaders';
 
 export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSidebar }) {
   const { user } = useAuth();
-  const { getActiveWallpaperForRoom: getOldWp, personalityState } = useWallpaper();
   const { getActiveWallpaperForRoom, appearanceState } = useAppearance();
 
   const [messages, setMessages] = useState([]);
@@ -37,6 +34,9 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
   // Mobile More Dropdown State
   const [isMobileMoreOpen, setIsMobileMoreOpen] = useState(false);
+
+  // Mobile composer ⋮ (attachment menu) state
+  const [isComposerMoreOpen, setIsComposerMoreOpen] = useState(false);
 
   // Real-Time Notifications State
   const [notifications, setNotifications] = useState([]);
@@ -74,14 +74,51 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
+  // Message-feature refs: scroll container + per-message elements
+  const chatFeedRef = useRef(null);
+  const messageRefs = useRef({});
+
+  // Jump-to-latest: shown when the user has scrolled up the feed
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+
+  // Multi-select mode (delete-for-me / star / copy in bulk)
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // Message info popover
+  const [infoMessageId, setInfoMessageId] = useState(null);
+
+  // Pagination guard (prevents overlapping "load older" requests)
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [messagesError, setMessagesError] = useState(null);
+
+  // Offline resilience: pending messages queued while disconnected
+  const [pendingQueue, setPendingQueue] = useState([]);
+  const [isOffline, setIsOffline] = useState(false);
 
   const roomId = room._id || room.id;
+  const currentUserId = user?._id || user?.id;
+
+  // Memory-leak guards: abort in-flight requests, clear pending timers,
+  // and never setState after unmount
+  const abortControllerRef = useRef(null);
+  const scrollTimerRef = useRef(null);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Add Toast Notification
   const addNotification = (title, message, type = 'info') => {
     const id = 'toast_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
     setNotifications((prev) => [...prev, { id, title, message, type }]);
     setTimeout(() => {
+      // setState is safe here: React 18+ silently drops updates after unmount;
+      // the timer is bounded (5s) and always fires.
       setNotifications((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
   };
@@ -96,10 +133,15 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   };
 
   const fetchOlderMessages = async () => {
+    if (loadingOlder || !hasMore) return;
     const nextPage = page + 1;
+    setLoadingOlder(true);
     try {
       const response = await api.get(`/messages/${roomId}?page=${nextPage}&limit=50`);
-      const newMsgs = response.data;
+      if (!isMountedRef.current) return; // unmounted mid-flight → drop result
+      // Backend returns { messages: [...], page, limit, total, hasMore } — unwrap
+      const payload = response.data;
+      const newMsgs = Array.isArray(payload) ? payload : payload?.messages || [];
       if (newMsgs.length < 50) {
         setHasMore(false);
       }
@@ -107,8 +149,193 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       setPage(nextPage);
     } catch (err) {
       console.error('[Messages Error] Failed to fetch older messages:', err);
+    } finally {
+      if (isMountedRef.current) setLoadingOlder(false);
     }
   };
+
+  // ── Message feature helpers ─────────────────────────────────────────
+
+  const isNearBottom = () => {
+    const el = chatFeedRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 300;
+  };
+
+  const scrollToMessage = (messageId) => {
+    const el = messageRefs.current[messageId];
+    if (!el) {
+      // Message not loaded yet — fetch page 1 and try again after render
+      fetchOlderMessages();
+      return;
+    }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('msg-flash-highlight');
+    // Force reflow so the animation restarts on repeat clicks
+    void el.offsetWidth;
+    el.classList.add('msg-flash-highlight');
+    setTimeout(() => el.classList.remove('msg-flash-highlight'), 1800);
+  };
+
+  const copyMessage = async (msg) => {
+    const text = msg.content || msg.fileUrl || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      addNotification('Copied', 'Message copied to clipboard.', 'success');
+    } catch (err) {
+      addNotification('Copy failed', 'Could not copy message.', 'error');
+    }
+  };
+
+  const toggleStar = async (msg) => {
+    try {
+      await api.post(`/messages/${msg._id}/star`);
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m._id !== msg._id) return m;
+          const starredBy = m.starredBy || [];
+          return {
+            ...m,
+            starredBy: starredBy.includes(currentUserId)
+              ? starredBy.filter((id) => id !== currentUserId)
+              : [...starredBy, currentUserId],
+          };
+        })
+      );
+      addNotification('Starred', 'Message bookmarked.', 'success');
+    } catch (err) {
+      addNotification('Star failed', 'Could not update star.', 'error');
+    }
+  };
+
+  const deleteForMe = async (msgId) => {
+    try {
+      await api.post(`/messages/${msgId}/delete-for-me`);
+      setMessages((prev) => prev.filter((m) => m._id !== msgId));
+    } catch (err) {
+      addNotification('Delete failed', 'Could not delete message.', 'error');
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    const confirmed = window.confirm('Delete this room? This will permanently remove all messages and call history. Only the owner can do this.');
+    if (!confirmed) return;
+    try {
+      await api.delete(`/rooms/${roomId}`);
+      addNotification('Room Deleted', 'Room has been deleted.', 'success');
+      onBack?.(); // navigate back to chat list
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to delete room';
+      addNotification('Delete failed', msg, 'error');
+    }
+  };
+
+  const toggleSelect = (msgId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId);
+      else next.add(msgId);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const deleteSelected = () => {
+    selectedIds.forEach((msgId) => deleteForMe(msgId));
+    addNotification('Deleted', `${selectedIds.size} message(s) hidden.`, 'success');
+    exitSelectionMode();
+  };
+
+  // ── Offline queue ──────────────────────────────────────────────────
+
+  const queueMessage = (payload) => {
+    const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    setPendingQueue((prev) => [...prev, { tempId, ...payload }]);
+    return tempId;
+  };
+
+  // Ref mirror of pendingQueue so flushQueue stays referentially stable
+  const pendingQueueRef = useRef([]);
+  useEffect(() => {
+    pendingQueueRef.current = pendingQueue;
+  }, [pendingQueue]);
+
+  const flushQueue = useCallback(() => {
+    const queued = pendingQueueRef.current;
+    if (queued.length === 0) return;
+    queued.forEach((p) => {
+      socket.emit('send_message', {
+        roomId: p.roomId,
+        content: p.content || '',
+        fileUrl: p.fileUrl || null,
+        fileType: p.fileType || null,
+        fileName: p.fileName || null,
+        replyToId: p.replyToId || null,
+        tempId: p.tempId,
+      });
+    });
+    pendingQueueRef.current = [];
+    setPendingQueue([]);
+    addNotification('Back online', `${queued.length} queued message(s) sent.`, 'success');
+  }, []);
+
+  // Track connection status for the offline banner + flush on online
+  useEffect(() => {
+    const unsubSocket = onSocketStatusChange((connected) => {
+      setIsOffline(!connected);
+      if (connected) flushQueue();
+    });
+    setIsOffline(!isSocketConnected());
+
+    // Also listen to browser online/offline events
+    const handleOnline = () => flushQueue();
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      unsubSocket();
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [flushQueue]);
+
+  // Track scroll position to reveal/hide the "jump to latest" button
+  useEffect(() => {
+    const el = chatFeedRef.current;
+    if (!el) return undefined;
+    const onScroll = () => setShowJumpToLatest(!isNearBottom());
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [roomId, messages.length]);
+
+  // Load first page of messages (hoisted for retry from the error state)
+  const loadMessages = useCallback(async () => {
+    if (!roomId) return;
+    // Abort any in-flight request from a previous room/mount
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setMessagesLoading(true);
+    setMessagesError(null);
+    try {
+      const response = await api.get(`/messages/${roomId}?page=1&limit=50`, { signal: controller.signal });
+      // Backend returns { messages: [...], page, limit, total, hasMore } — unwrap
+      const payload = response.data;
+      const newMsgs = Array.isArray(payload) ? payload : payload?.messages || [];
+      if (newMsgs.length < 50) setHasMore(false);
+      setMessages(newMsgs);
+      scrollTimerRef.current = setTimeout(scrollToBottom, 100);
+    } catch (err) {
+      // Aborted (room switched / unmounted) — not an error, just skip
+      if (err?.code === 'ERR_CANCELED' || err?.message === 'canceled') return;
+      console.error('[Messages Error] Failed to fetch messages:', err);
+      setMessagesError('Could not load messages. Check your connection and try again.');
+    } finally {
+      if (abortControllerRef.current === controller) setMessagesLoading(false);
+    }
+  }, [roomId]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -117,28 +344,27 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     setPage(1);
     setHasMore(true);
 
-    const loadMessages = async () => {
-      try {
-        const response = await api.get(`/messages/${roomId}?page=1&limit=50`);
-        const newMsgs = response.data;
-        if (newMsgs.length < 50) setHasMore(false);
-        setMessages(newMsgs);
-        setTimeout(scrollToBottom, 100);
-      } catch (err) {
-        console.error('[Messages Error] Failed to fetch messages:', err);
-      }
-    };
-
     loadMessages();
 
     // Socket Room Join
+    registerActiveRoom(roomId);
     socket.emit('join_room', { roomId, user });
 
     // Socket Event Listeners
     const handleReceiveMessage = (newMsg) => {
       if (newMsg.room === roomId) {
-        setMessages((prev) => [...prev, newMsg]);
-        scrollToBottom();
+        setMessages((prev) => {
+          // Duplicate prevention: ignore messages already in the feed
+          // (covers broadcast echoes of ack-confirmed sends).
+          if (prev.some((m) => m._id === newMsg._id)) return prev;
+          return [...prev, newMsg];
+        });
+        // Reconcile a queued (offline) message with its server copy
+        if (newMsg.tempId) {
+          setPendingQueue((prev) => prev.filter((p) => p.tempId !== newMsg.tempId));
+        }
+        // Only auto-scroll when the user is already near the bottom
+        if (isNearBottom()) scrollToBottom();
 
         const senderId = newMsg.sender?._id || newMsg.sender?.id;
         const currentUserId = user?._id || user?.id;
@@ -173,10 +399,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     };
 
     const handleUserJoined = ({ user: joinedUser }) => {
-      console.group('%c[Socket] 🟢 User Joined', 'color:#10b981;font-weight:bold');
-      console.log('  username:', joinedUser?.username);
-      console.log('  room:', room.name);
-      console.groupEnd();
+      if (import.meta.env.DEV) {
+        console.group('%c[Socket] 🟢 User Joined', 'color:#10b981;font-weight:bold');
+        console.log('  username:', joinedUser?.username);
+        console.log('  room:', room.name);
+        console.groupEnd();
+      }
 
       if (joinedUser?.username && joinedUser.username !== user?.username) {
         addNotification('User Joined', `${joinedUser.username} joined #${room.name}`, 'join');
@@ -184,10 +412,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     };
 
     const handleUserLeft = ({ user: leftUser }) => {
-      console.group('%c[Socket] 🔴 User Left', 'color:#ef4444;font-weight:bold');
-      console.log('  username:', leftUser?.username);
-      console.log('  room:', room.name);
-      console.groupEnd();
+      if (import.meta.env.DEV) {
+        console.group('%c[Socket] 🔴 User Left', 'color:#ef4444;font-weight:bold');
+        console.log('  username:', leftUser?.username);
+        console.log('  room:', room.name);
+        console.groupEnd();
+      }
 
       if (leftUser?.username && leftUser.username !== user?.username) {
         addNotification('User Left', `${leftUser.username} left the room`, 'leave');
@@ -213,7 +443,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     // that we must use to route our SDP answer and ICE candidates directly
     // back to them instead of broadcasting to the whole room.
     const handleCallIncoming = ({ offer, caller, fromSocket }) => {
-      console.log('[Voice] Incoming call from socket:', fromSocket, 'user:', caller?.username);
+      if (import.meta.env.DEV) console.log('[Voice] Incoming call from socket:', fromSocket, 'user:', caller?.username);
       setVoiceOffer(offer);
       setVoiceCaller(caller);
       setVoiceCallerSocketId(fromSocket || null);  // <-- KEY FIX
@@ -225,7 +455,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     // Incoming Video Call Socket Event
     // FIX: Same fix for video — extract fromSocket for targeted signaling.
     const handleVideoCallIncoming = ({ offer, caller, fromSocket }) => {
-      console.log('[Video] Incoming call from socket:', fromSocket, 'user:', caller?.username);
+      if (import.meta.env.DEV) console.log('[Video] Incoming call from socket:', fromSocket, 'user:', caller?.username);
       setVideoOffer(offer);
       setVideoCaller(caller);
       setVideoCallerSocketId(fromSocket || null);  // <-- KEY FIX
@@ -259,8 +489,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     socket.on('call_incoming', handleCallIncoming);
     socket.on('video_call_incoming', handleVideoCallIncoming);
     socket.on('status_updated', handleStatusUpdated);
+    socket.on('room_access_denied', ({ message }) => {
+      // User tried to join a private room they're not a member of
+      addNotification('Access Denied', message || 'This is a private room. You need an invite to join.', 'error');
+      // Navigate back to chat list
+      onBack?.();
+    });
 
     return () => {
+      abortControllerRef.current?.abort();
+      clearTimeout(scrollTimerRef.current);
+      unregisterActiveRoom(roomId);
       socket.emit('leave_room', { roomId, user });
       socket.off('receive_message', handleReceiveMessage);
       socket.off('message_edited', handleMessageEdited);
@@ -313,6 +552,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         newContent: inputText.trim(),
       });
       setEditingMessage(null);
+    } else if (!isSocketConnected()) {
+      // Offline — queue the message and deliver it on reconnect
+      queueMessage({ roomId, content: inputText.trim(), replyToId: replyingTo ? replyingTo._id : null });
+      addNotification('Offline', 'Connection lost — your message is queued.', 'warning');
+      setReplyingTo(null);
     } else {
       socket.emit('send_message', {
         roomId,
@@ -349,15 +593,28 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
       const { url, fileType, fileName } = response.data;
 
-      socket.emit('send_message', {
-        roomId,
-        content: inputText.trim(),
-        fileUrl: url,
-        fileType,
-        fileName,
-        sender: user,
-        replyToId: replyingTo ? replyingTo._id : null,
-      });
+      if (!isSocketConnected()) {
+        // Offline — queue the message with file info
+        queueMessage({
+          roomId,
+          content: inputText.trim(),
+          fileUrl: url,
+          fileType,
+          fileName,
+          replyToId: replyingTo ? replyingTo._id : null,
+        });
+        addNotification('Offline', 'Connection lost — your file message is queued.', 'warning');
+      } else {
+        socket.emit('send_message', {
+          roomId,
+          content: inputText.trim(),
+          fileUrl: url,
+          fileType,
+          fileName,
+          sender: user,
+          replyToId: replyingTo ? replyingTo._id : null,
+        });
+      }
 
       setUploadingFile(false);
       setInputText('');
@@ -380,17 +637,30 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       const res = await api.post('/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const { url, fileType, fileName } = res.data;
+      const { url } = res.data;
 
-      socket.emit('send_message', {
-        roomId,
-        content: '',
-        fileUrl: url,
-        fileType: 'audio',
-        fileName: 'Voice Note',
-        sender: user,
-        replyToId: replyingTo ? replyingTo._id : null,
-      });
+      if (!isSocketConnected()) {
+        // Offline — queue the voice note
+        queueMessage({
+          roomId,
+          content: '',
+          fileUrl: url,
+          fileType: 'audio',
+          fileName: 'Voice Note',
+          replyToId: replyingTo ? replyingTo._id : null,
+        });
+        addNotification('Offline', 'Connection lost — your voice note is queued.', 'warning');
+      } else {
+        socket.emit('send_message', {
+          roomId,
+          content: '',
+          fileUrl: url,
+          fileType: 'audio',
+          fileName: 'Voice Note',
+          sender: user,
+          replyToId: replyingTo ? replyingTo._id : null,
+        });
+      }
 
       setUploadingFile(false);
       setReplyingTo(null);
@@ -496,7 +766,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       {/* Layer 4: Top Header Bar (Dedicated Multi-Header Architecture) */}
       <header className="chat-header" id="chat-header" style={{ position: 'relative', zIndex: 4, flexShrink: 0 }}>
           <div className="header-left">
-              <button className="btn-icon back-to-list-btn" onClick={onToggleMobileSidebar} title="Menu" aria-label="Menu" style={{ display: 'md-none' }}>
+              <button className="btn-icon back-to-list-btn hamburger" onClick={onToggleMobileSidebar} title="Menu" aria-label="Menu">
                   <span style={{ fontSize: 18 }}>☰</span>
               </button>
               <button className="btn-icon back-to-list-btn" onClick={onBack} title="Back to Chat List" aria-label="Back to Chat List">
@@ -512,32 +782,49 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
               <div className="contact-details">
                   <div className="contact-name-row">
                       <h2 className="contact-name" id="header-contact-name">{room.name || 'Note to myself'}</h2>
-                      <span className="encryption-badge verified" id="header-encryption-badge" title="OMEMO End-to-End Encrypted">
+                      <span className="encryption-badge verified" id="header-encryption-badge" title="Transport Layer Security (TLS)">
                           <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                          <span>OMEMO</span>
+                          <span>TLS</span>
                       </span>
                   </div>
                   <p className="contact-status-text" id="header-status-text">
-                    {room.code ? `Code: #${room.code}` : 'Encrypted XMPP Session'}
+                    {room.code ? `Code: ${room.code}` : 'Encrypted XMPP Session'}
                   </p>
               </div>
           </div>
 
           <div className="header-right-actions">
-              <button className="btn-icon" onClick={() => setIsStudioOpen(true)} title="Chat Personality Studio" aria-label="Studio">
+              <button className="btn-icon header-action-studio" onClick={() => setIsStudioOpen(true)} title="Chat Personality Studio" aria-label="Studio">
                   <span>✨</span>
               </button>
-              <button className="btn-icon" onClick={handleStartVoiceCall} title="Start Audio Call" aria-label="Audio Call">
+              <button className="btn-icon header-action-voice" onClick={handleStartVoiceCall} title="Start Audio Call" aria-label="Audio Call">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
               </button>
-              <button className="btn-icon" onClick={handleStartVideoCall} title="Start Video Call" aria-label="Video Call">
+              <button className="btn-icon header-action-video" onClick={handleStartVideoCall} title="Start Video Call" aria-label="Video Call">
                   <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
               </button>
-              <button className="btn-icon" onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)} title="Search in Conversation" aria-label="Search Messages">
-                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <button className="btn-icon header-action-more" onClick={() => setIsMobileMoreOpen(!isMobileMoreOpen)} title="More options" aria-label="More options">
+                  {/* Search icon (desktop) */}
+                  <svg className="icon icon-more-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  {/* Three-dot icon (mobile) */}
+                  <svg className="icon icon-more-dots" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
               </button>
-              <div className="action-divider"></div>
-              <button className="btn-icon" onClick={() => onLeaveRoom(roomId)} title="Leave Room" aria-label="Leave Room">
+              <button
+                className="btn-icon header-action-select"
+                onClick={() => setSelectionMode((prev) => !prev)}
+                title={selectionMode ? 'Exit multi-select mode' : 'Select messages'}
+                aria-label="Toggle multi-select"
+                style={selectionMode ? { color: 'var(--color-primary)', background: 'var(--primary-light)' } : undefined}
+              >
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </button>
+              <div className="action-divider header-action-divider"></div>
+              {room.owner && (user?._id === room.owner._id || user?.id === room.owner._id || user?._id === room.owner || user?.id === room.owner) && (
+                <button className="btn-icon header-action-delete" onClick={handleDeleteRoom} title="Delete Room" aria-label="Delete Room">
+                    <span style={{ color: '#ef4444' }}>🗑️</span>
+                </button>
+              )}
+              <button className="btn-icon header-action-leave" onClick={() => onLeaveRoom(roomId)} title="Leave Room" aria-label="Leave Room">
                   <span style={{ color: '#ef4444' }}>🚪</span>
               </button>
           </div>
@@ -548,6 +835,14 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
               <button className="mobile-more-dropdown-item" onClick={() => { setIsStudioOpen(true); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#d1d5db', textAlign: 'left', cursor: 'pointer' }}>
                 <span>✨</span> Appearance Studio
               </button>
+              <button className="mobile-more-dropdown-item" onClick={() => { setSelectionMode(true); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#d1d5db', textAlign: 'left', cursor: 'pointer' }}>
+                <span>☑️</span> Select Messages
+              </button>
+              {room.owner && (user?._id === room.owner._id || user?.id === room.owner._id || user?._id === room.owner || user?.id === room.owner) && (
+                <button className="mobile-more-dropdown-item" onClick={() => { handleDeleteRoom(); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#ef4444', textAlign: 'left', cursor: 'pointer' }}>
+                  <span>🗑️</span> Delete Room
+                </button>
+              )}
               <button className="mobile-more-dropdown-item" onClick={() => { onLeaveRoom(roomId); setIsMobileMoreOpen(false); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#ef4444', textAlign: 'left', cursor: 'pointer' }}>
                 <span>🚪</span> Leave Room
               </button>
@@ -557,6 +852,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
       {/* ─── Messages Feed Area ──────────────────────────────────────── */}
       <div
+        ref={chatFeedRef}
         className="messages-history-container scrollzone"
         id="messages-container"
         role="log"
@@ -567,7 +863,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         {/* Security notice banner */}
         <div className="system-message security-notice">
           <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          <span>Messages and calls in this conversation are end-to-end encrypted.</span>
+          <span>Messages and calls in this conversation are secured in transit (TLS).</span>
         </div>
 
         {/* Load More Button */}
@@ -583,7 +879,15 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           </div>
         )}
 
-        {messages.length === 0 ? (
+        {messagesLoading ? (
+          <SkeletonMessageList count={6} />
+        ) : messagesError ? (
+          <div className="messages-error" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }} aria-hidden="true">⚠️</span>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', maxWidth: 320 }}>{messagesError}</p>
+            <button className="btn btn-primary" onClick={loadMessages} type="button">Retry</button>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="empty-roster-state" style={{ flex: 1 }}>
             <svg className="icon icon-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <p className="empty-title">No messages yet</p>
@@ -598,11 +902,26 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             return (
               <div
                 key={msg._id}
-                className={`message-row ${isMe ? 'message-row--me' : ''}`}
-                onClick={() => setHoveredMessageId(hoveredMessageId === msg._id ? null : msg._id)}
+                ref={(el) => { if (el) messageRefs.current[msg._id] = el; }}
+                className={`message-row ${isMe ? 'message-row--me' : ''} ${selectedIds.has(msg._id) ? 'message-row--selected' : ''}`}
+                onClick={() => (selectionMode ? toggleSelect(msg._id) : setHoveredMessageId(hoveredMessageId === msg._id ? null : msg._id))}
                 onMouseLeave={() => setHoveredMessageId(null)}
                 style={{ display: 'flex', gap: 10, alignItems: 'flex-start', position: 'relative', animation: 'message-appear 150ms ease-out' }}
               >
+                {/* Selection checkbox (multi-select mode) */}
+                {selectionMode && (
+                  <div style={{ paddingTop: 8, flexShrink: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(msg._id)}
+                      onChange={() => toggleSelect(msg._id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Select message from ${senderName}`}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+                    />
+                  </div>
+                )}
+
                 {/* Avatar */}
                 <div style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setTargetProfileId(msg.sender?._id || msg.sender?.id)}>
                   <PresenceBadge userId={msg.sender?._id || msg.sender?.id}>
@@ -622,7 +941,13 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                     {msg.sender?.customStatus?.emoji && (
                       <span style={{ fontSize: 11 }} title={msg.sender?.customStatus?.text}>{msg.sender.customStatus.emoji}</span>
                     )}
-                    <span className="chat-timestamp">{formatTime(msg.createdAt)}</span>
+                    <span className="chat-timestamp" title={new Date(msg.createdAt).toLocaleString()}>{formatTime(msg.createdAt)}</span>
+                    {msg.isEdited && (
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>(edited)</span>
+                    )}
+                    {(msg.starredBy || []).includes(currentUserId) && (
+                      <span title="Starred by you">⭐</span>
+                    )}
                   </div>
 
                   {/* Image Attachment */}
@@ -680,16 +1005,56 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                     </div>
                   )}
 
-                  {/* Action buttons (Reply / Edit / Delete) */}
+                  {/* Action buttons (Reply / Copy / Star / Info / Edit / Delete) */}
                   <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
                     <button onClick={() => setReplyingTo(msg)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Reply</button>
+                    <button onClick={() => copyMessage(msg)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Copy</button>
+                    <button
+                      onClick={() => toggleStar(msg)}
+                      style={{ background: 'transparent', border: 'none', color: (msg.starredBy || []).includes(currentUserId) ? 'var(--color-amber)' : 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}
+                    >
+                      {(msg.starredBy || []).includes(currentUserId) ? '★ Starred' : '☆ Star'}
+                    </button>
+                    <button
+                      onClick={() => setInfoMessageId(infoMessageId === msg._id ? null : msg._id)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}
+                    >
+                      Info
+                    </button>
                     {user?.username === senderName && (
                       <>
                         <button onClick={() => handleStartEdit(msg)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Edit</button>
                         <button onClick={() => handleDeleteMessage(msg._id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer', padding: 0 }}>Delete</button>
+                        <button onClick={() => deleteForMe(msg._id)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Hide</button>
                       </>
                     )}
                   </div>
+
+                  {/* Message Info popover */}
+                  {infoMessageId === msg._id && (
+                    <div
+                      className="msg-info-popover"
+                      style={{
+                        marginTop: 6,
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-popover)',
+                        fontSize: 11,
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        maxWidth: 340,
+                      }}
+                    >
+                      <div><strong style={{ color: 'var(--text-main)' }}>From:</strong> {senderName}</div>
+                      <div><strong style={{ color: 'var(--text-main)' }}>Sent:</strong> {new Date(msg.createdAt).toLocaleString()}</div>
+                      {msg.editedAt && <div><strong style={{ color: 'var(--text-main)' }}>Edited:</strong> {new Date(msg.editedAt).toLocaleString()}</div>}
+                      {msg.fileType && <div><strong style={{ color: 'var(--text-main)' }}>Type:</strong> {msg.fileType === 'call' ? 'Call' : msg.fileType}</div>}
+                      <div style={{ wordBreak: 'break-all' }}><strong style={{ color: 'var(--text-main)' }}>ID:</strong> {msg._id}</div>
+                    </div>
+                  )}
 
                   {/* Reactions */}
                   {msg.reactions && msg.reactions.length > 0 && (
@@ -742,6 +1107,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
           })
         )}
 
+        {/* Offline banner — shows queued messages while disconnected */}
+        {isOffline && (
+          <div className="typing-indicator-inline offline-banner" role="status">
+            <span>
+              📡 {pendingQueue.length > 0
+                ? `Offline — ${pendingQueue.length} message${pendingQueue.length > 1 ? 's' : ''} queued, will send when back online`
+                : 'Offline — reconnecting…'}
+            </span>
+          </div>
+        )}
+
         {/* Uploading indicator */}
         {uploadingFile && (
           <div className="typing-indicator-inline">
@@ -760,6 +1136,81 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             </div>
             <span>{typingArray.join(', ')} is typing...</span>
           </div>
+        )}
+
+        {/* Selection action bar (multi-select mode) */}
+        {selectionMode && (
+          <div
+            className="selection-action-bar"
+            style={{
+              position: 'sticky',
+              bottom: 12,
+              alignSelf: 'center',
+              zIndex: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 14px',
+              borderRadius: 999,
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-color)',
+              boxShadow: 'var(--shadow-lg)',
+              fontSize: 12,
+              color: 'var(--text-main)',
+            }}
+          >
+            <span><strong>{selectedIds.size}</strong> selected</span>
+            <button
+              onClick={() => { selectedIds.forEach((id) => { const m = messages.find((x) => x._id === id); if (m) toggleStar(m); }); }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+            >
+              ★ Star
+            </button>
+            <button
+              onClick={deleteSelected}
+              disabled={selectedIds.size === 0}
+              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '4px 8px' }}
+            >
+              🗑️ Hide for me
+            </button>
+            <button
+              onClick={exitSelectionMode}
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: '4px 10px', borderRadius: 999 }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Jump to latest floating button */}
+        {showJumpToLatest && !selectionMode && (
+          <button
+            className="jump-to-latest-btn"
+            onClick={() => { scrollToBottom(); setShowJumpToLatest(false); }}
+            aria-label="Jump to latest messages"
+            title="Jump to latest"
+            style={{
+              position: 'sticky',
+              bottom: 16,
+              alignSelf: 'flex-end',
+              marginRight: 20,
+              zIndex: 8,
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-elevated)',
+              color: 'var(--color-primary)',
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-md)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+            }}
+          >
+            ↓
+          </button>
         )}
 
         <div ref={messagesEndRef} />
@@ -788,7 +1239,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         {/* Reply Banner */}
         {replyingTo && (
           <div style={{ padding: '4px 8px', background: 'var(--bg-input)', borderRadius: 6, border: '1px solid var(--border-color)', fontSize: 11, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span
+              onClick={() => scrollToMessage(replyingTo._id)}
+              style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
+              title="Jump to original message"
+            >
               Replying to <strong style={{ color: 'var(--color-primary)' }}>@{replyingTo.sender?.username}</strong>: &quot;{replyingTo.content}&quot;
             </span>
             <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>&times;</button>
@@ -811,12 +1266,29 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         ) : (
           <form className="composer-form" id="composer-form" onSubmit={handleSubmitMessage} autoComplete="off">
             <div className="composer-toolbar-left">
-              <button type="button" className="btn-icon" onClick={() => fileInputRef.current?.click()} title="Add Attachment" aria-label="Add Attachment">
+              <button type="button" className="btn-icon composer-action-attach" onClick={() => fileInputRef.current?.click()} title="Add Attachment" aria-label="Add Attachment">
                 <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               </button>
-              <button type="button" className="btn-icon encryption-toggle-btn active" title="OMEMO Encryption: Enabled" aria-label="Toggle OMEMO Encryption">
+              <button type="button" className="btn-icon encryption-toggle-btn active composer-action-encryption" title="OMEMO Encryption: Enabled" aria-label="Toggle OMEMO Encryption">
                 <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               </button>
+              {/* Mobile-only: ⋮ opens the attachment menu (doc/img, voice, emoji) */}
+              <button type="button" className="btn-icon composer-action-more" onClick={() => setIsComposerMoreOpen(!isComposerMoreOpen)} title="More options" aria-label="More options">
+                <svg className="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+              </button>
+              {isComposerMoreOpen && (
+                <div className="composer-more-menu" role="menu" aria-label="Attachment options">
+                  <button type="button" role="menuitem" onClick={() => { fileInputRef.current?.click(); setIsComposerMoreOpen(false); }}>
+                    <span className="composer-more-icon">📎</span> Photo / Document
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => { setIsRecordingVoice(true); setIsComposerMoreOpen(false); }}>
+                    <span className="composer-more-icon">🎤</span> Voice Note
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => { setShowEmojiPicker(!showEmojiPicker); setIsComposerMoreOpen(false); }}>
+                    <span className="composer-more-icon">😊</span> Emoji
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="composer-input-wrapper">
@@ -838,10 +1310,10 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             </div>
 
             <div className="composer-toolbar-right">
-              <button type="button" className="btn-icon" title="Voice Note" aria-label="Voice Note" onMouseDown={() => setIsRecordingVoice(true)}>
+              <button type="button" className="btn-icon composer-action-voice" title="Voice Note" aria-label="Voice Note" onMouseDown={() => setIsRecordingVoice(true)}>
                 <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
               </button>
-              <button type="button" className="btn-icon" id="emoji-trigger-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Insert Emoji" aria-label="Insert Emoji">
+              <button type="button" className="btn-icon composer-action-emoji" id="emoji-trigger-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Insert Emoji" aria-label="Insert Emoji">
                 <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
               </button>
               <button type="submit" className="btn-send" id="btn-send-message" title="Send Message (Enter)" aria-label="Send Message">

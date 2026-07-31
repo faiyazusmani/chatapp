@@ -253,6 +253,8 @@
 
 /* ── Avatar sizes ────────────────────────────────────────────────────────── */
 .avatar {
+  height: 36px;
+  width: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -641,10 +643,49 @@
   .btn { min-height: 44px; padding: 10px 20px; }
 }
 
-/* ── Responsive: hide left sidebar on mobile ────────────────────────────── */
+/* ── Responsive: Mobile drawer for chat list panel ────────────────────────── */
 @media (max-width: 640px) {
-  .left-sidebar { display: none; }
-  .chat-list-panel { min-width: 100vw; }
+  /* Instagram-style mobile nav: the sidebar container IS the full-screen
+     rooms list (handled in index.css). The chat-list-panel inside it must be
+     a static flex child that fills the width — not a drawer. */
+  .chat-list-panel {
+    position: relative;
+    top: auto;
+    left: auto;
+    height: 100%;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    transform: none;
+    transition: none;
+    box-shadow: none;
+  }
+  .chat-list-panel.open {
+    transform: none;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  .sidebar-backdrop.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+  /* Hamburger button is obsolete in the Instagram-style nav — the back
+     arrow in the chat header is the navigation control. */
+  .back-to-list-btn.hamburger {
+    display: none !important;
+  }
+}
+@media (min-width: 641px) {
+  .back-to-list-btn.hamburger {
+    display: none !important;
+  }
 }
 
 /* ── Responsive: compact chat list ─────────────────────────────────────── */
@@ -1646,6 +1687,57 @@
   height: 24px;
   background-color: var(--border-color);
   margin: 0 4px;
+}
+
+/* Desktop: three-dot icon hidden, search icon shown */
+.icon-more-dots { display: none; }
+.icon-more-search { display: block; }
+
+/* Desktop: composer ⋮ button hidden (all actions inline) */
+.composer-action-more { display: none; }
+
+/* Mobile composer ⋮ attachment menu (positioned above the toolbar) */
+.composer-more-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 120;
+  min-width: 200px;
+  background: var(--bg-popover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.composer-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.composer-more-menu button:hover {
+  background: var(--bg-panel-hover);
+}
+
+.composer-more-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 /* In-Chat Search Bar Overlay */

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useAppearance } from '../../context/AppearanceContext';
 import { themeSoundManager } from '../../utils/themeSoundManager';
 

@@ -19,7 +19,10 @@ export const formatLastSeen = (date, status) => {
 
   const lastSeenDate = new Date(date);
   const now = new Date();
-  
+
+  // Guard against invalid dates (corrupt DB values, bad client input)
+  if (Number.isNaN(lastSeenDate.getTime())) return 'Offline';
+
   const diffInMs = now - lastSeenDate;
   const diffInMins = Math.floor(diffInMs / 60000);
   const diffInHours = Math.floor(diffInMins / 60);
@@ -27,6 +30,7 @@ export const formatLastSeen = (date, status) => {
   // Less than an hour ago
   if (diffInMins < 1) return 'Last seen just now';
   if (diffInMins < 60) return `Last seen ${diffInMins} minute${diffInMins > 1 ? 's' : ''} ago`;
+  if (diffInHours < 24) return `Last seen ${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
 
   // Check if it's today or yesterday
   const isToday = now.toDateString() === lastSeenDate.toDateString();

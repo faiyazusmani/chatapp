@@ -16,6 +16,7 @@ export class BaseEffect {
   // Lifecycle hooks to be overridden by effect subclasses
   init() {}
 
+  // eslint-disable-next-line no-unused-vars -- base hook signature; subclasses may use deltaTime
   update(deltaTime = 16) {}
 
   draw() {}

@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getRoomMessages, markMessagesAsRead } = require('../controllers/messageController');
+const { getRoomMessages, markMessagesAsRead, searchRoomMessages, toggleStarMessage, deleteForMe } = require('../controllers/messageController');
 const { protect } = require('../middleware/authMiddleware');
 
+router.get('/:roomId/search', protect, searchRoomMessages);
 router.get('/:roomId', protect, getRoomMessages);
 router.post('/:roomId/read', protect, markMessagesAsRead);
+router.post('/:messageId/star', protect, toggleStarMessage);
+router.post('/:messageId/delete-for-me', protect, deleteForMe);
 
 module.exports = router;

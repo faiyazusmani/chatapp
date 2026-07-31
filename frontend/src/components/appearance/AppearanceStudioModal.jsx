@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAppearance } from '../../context/AppearanceContext';
 import { VISUAL_EFFECTS } from '../../config/appearanceConfig';

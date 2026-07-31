@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BUILTIN_THEMES } from '../../config/appearanceConfig';
 import { useAppearance } from '../../context/AppearanceContext';
 import ThemeCard from './ThemeCard';

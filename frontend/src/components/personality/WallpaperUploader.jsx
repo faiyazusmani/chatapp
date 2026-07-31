@@ -1,10 +1,8 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import api from '../../services/api';
-import { useAuth } from '../../context/useAuth';
 import { useWallpaper } from '../../context/WallpaperContext';
 
 export default function WallpaperUploader({ onUploaded }) {
-  const { token } = useAuth();
   const { addCustomWallpaper, setGlobalWallpaper } = useWallpaper();
 
   const [uploading, setUploading] = useState(false);
@@ -45,9 +43,8 @@ export default function WallpaperUploader({ onUploaded }) {
 
       const uploadRes = await api.post('/upload', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       const imageUrl = uploadRes.data.url;

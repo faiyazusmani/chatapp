@@ -4,8 +4,8 @@ import { useAuth } from '../context/useAuth';
 import UserProfileModal from './profile/UserProfileModal';
 import StatusPickerModal from './profile/StatusPickerModal';
 import ThemeSettingsModal from './profile/ThemeSettingsModal';
-import ChatPersonalityStudioModal from './personality/ChatPersonalityStudioModal';
 import AppearanceStudioModal from './appearance/AppearanceStudioModal';
+import { SkeletonChatItem } from './SkeletonLoaders';
 import '../styles/gajim/gajim-provided.css'; // Import the new Gajim styles
 
 export default function Sidebar({
@@ -19,6 +19,8 @@ export default function Sidebar({
   onSelectRoom,
   searchQuery,
   setSearchQuery,
+  unreadCounts = {},
+  roomsLoading = false,
   isMobileSidebarOpen,
   setIsMobileSidebarOpen
 }) {
@@ -95,34 +97,26 @@ export default function Sidebar({
   const currentRoomsList = activeTab === 'joined' ? recentRooms : rooms;
 
   return (
-    <>
-      {/* Mobile Backdrop */}
-      {isMobileSidebarOpen && (
-        <div 
-          className="sidebar-backdrop"
-          onClick={() => setIsMobileSidebarOpen(false)}
+      <>
+        {/* Mobile Backdrop */}
+        {isMobileSidebarOpen && (
+          <div 
+            className="sidebar-backdrop visible"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
+        <div
+          className="gajim-sidebar-container"
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40
+            display: 'flex',
+            height: '100%',
           }}
-        />
-      )}
-      
-      <div 
-        style={{ 
-          display: 'flex', 
-          height: '100%', 
-          position: isMobileSidebarOpen ? 'fixed' : 'relative',
-          zIndex: 50,
-          transform: isMobileSidebarOpen ? 'translateX(0)' : 'none',
-          transition: 'transform 0.3s ease'
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* ========================================================= */}
-        {/* 1. LEFT SIDEBAR                                          */}
-        {/* ========================================================= */}
-        <aside className="left-sidebar" aria-label="Main Navigation">
+        >
+          {/* ========================================================= */}
+          {/* 1. LEFT SIDEBAR                                          */}
+          {/* ========================================================= */}
+          <aside className="left-sidebar" aria-label="Main Navigation">
             {/* User Profile & Presence section */}
             <div className="sidebar-user-profile" ref={userMenuRef}>
                 <div 
@@ -228,13 +222,18 @@ export default function Sidebar({
         {/* ========================================================= */}
         {/* 2. CHAT LIST PANEL                                        */}
         {/* ========================================================= */}
-        <section className="chat-list-panel" aria-label="Chat List and Roster">
+        <section 
+          className={`chat-list-panel ${isMobileSidebarOpen ? 'open' : ''}`}
+          aria-label="Chat List and Roster"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
             {/* Header with Title & Action Button */}
             <div className="chat-list-header">
                 <div className="header-title-container">
                     <h1 className="panel-title">{activeTab === 'joined' ? 'Rooms' : 'Chats'}</h1>
                     <span className="connection-status-pill connected" title="Connected">
-                        <span className="status-dot"></span> XMPP
+                        <span className="status-dot"></span> JoyBoy
                     </span>
                 </div>
                 <button className="btn-icon btn-primary-soft" onClick={onOpenCreateModal} title="Add Contact or Join Room" aria-label="Add Contact or Join Room">
@@ -275,67 +274,82 @@ export default function Sidebar({
 
             {/* Chat List Scrollable Roster */}
             <div className="chat-list" role="listbox" aria-label="Conversations List">
-                {currentRoomsList.length === 0 ? (
+                {roomsLoading ? (
+                  /* Loading Roster State - Skeleton Loaders */
+                  <div className="chat-list-skeleton" style={{ padding: 8 }}>
+                    {Array.from({ length: 8 }, (_, i) => (
+                      <SkeletonChatItem key={i} />
+                    ))}
+                  </div>
+                ) : currentRoomsList.length === 0 ? (
                   /* Empty Roster State */
                   <div className="empty-roster-state">
                       <svg className="icon icon-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                       <p className="empty-title">No conversations yet</p>
-                      <p className="empty-subtitle">Click the "+" button to start a new chat or join a room.</p>
+                      <p className="empty-subtitle">Click the + button to start a new chat or join a room.</p>
                   </div>
                 ) : (
                   currentRoomsList.map((room) => {
                     const isSelected = activeRoom && (activeRoom._id || activeRoom.id) === (room._id || room.id);
                     const avatarBg = getRoomColor(room.name);
                     return (
-                      <div 
+                      <div
                         key={room._id || room.id || room.name}
                         className={`chat-item ${isSelected ? 'active' : ''}`}
                         onClick={() => onSelectRoom(room)}
                         tabIndex="0"
                       >
-                          <div 
-                            className="avatar-circle"
+                        <div
+                          className="avatar-circle"
+                          style={{
+                            background: avatarBg,
+                            width: 36,
+                            height: 36,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            position: 'relative'
+                          }}
+                        >
+                          {getUserInitials(room.name)}
+                          <span
                             style={{
-                              background: avatarBg,
-                              width: 36,
-                              height: 36,
+                              position: 'absolute',
+                              bottom: 0,
+                              right: 0,
+                              width: 8,
+                              height: 8,
                               borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#fff',
-                              fontSize: 13,
-                              fontWeight: 700,
-                              flexShrink: 0,
-                              position: 'relative'
+                              background: '#22c55e',
+                              border: '1.5px solid var(--bg-sidebar)'
                             }}
-                          >
-                            {getUserInitials(room.name)}
-                            <span
-                              style={{
-                                position: 'absolute',
-                                bottom: 0,
-                                right: 0,
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                background: '#22c55e',
-                                border: '1.5px solid var(--bg-sidebar)'
-                              }}
-                            />
-                          </div>
+                          />
+                        </div>
 
-                          <div className="chat-item-content">
-                              <div className="chat-item-top">
-                                  <span className="chat-name">{room.name}</span>
-                                  <span className="chat-timestamp">{room.code ? `#${room.code}` : 'Just now'}</span>
-                              </div>
-                              <div className="chat-item-bottom">
-                                  <div className="chat-preview">
-                                      <span>{room.description || `Code: ${room.code || 'OPEN'}`}</span>
-                                  </div>
-                              </div>
-                          </div>
+                        <div className="chat-item-content">
+                            <div className="chat-item-top">
+                                <span className="chat-name">{room.name}</span>
+                                {/* <span className="chat-timestamp">{room.code ? `#${room.code}` : 'Just now'}</span> */}
+                                {unreadCounts[room._id || room.id] > 0 && (
+                                  <span
+                                    className="unread-badge"
+                                    aria-label={`${unreadCounts[room._id || room.id]} unread messages`}
+                                  >
+                                    {unreadCounts[room._id || room.id] > 99 ? '99+' : unreadCounts[room._id || room.id]}
+                                  </span>
+                                )}
+                            </div>
+                            <div className="chat-item-bottom">
+                                <div className="chat-preview">
+                                    <span>{room.description }</span>
+                                </div>
+                            </div>
+                        </div>
                       </div>
                     )
                   })
@@ -379,6 +393,8 @@ Sidebar.propTypes = {
   onSelectRoom: PropTypes.func,
   searchQuery: PropTypes.string,
   setSearchQuery: PropTypes.func,
+  unreadCounts: PropTypes.object,
+  roomsLoading: PropTypes.bool,
   isMobileSidebarOpen: PropTypes.bool,
   setIsMobileSidebarOpen: PropTypes.func
 };

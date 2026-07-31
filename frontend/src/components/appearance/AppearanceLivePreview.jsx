@@ -1,4 +1,4 @@
-import React from 'react';
+
 import PropTypes from 'prop-types';
 import { useAppearance } from '../../context/AppearanceContext';
 import WallpaperEffectsLayer from './WallpaperEffectsLayer';

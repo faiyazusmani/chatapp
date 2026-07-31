@@ -52,12 +52,20 @@ const registerUser = async (req, res, next) => {
         avatar
       });
 
+      const token = generateToken(user._id.toString());
+      // Set HTTP-only cookie
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      });
       return res.status(201).json({
         _id: user._id.toString(),
         username: user.username,
         email: user.email,
         avatar: user.avatar,
-        token: generateToken(user._id.toString())
+        token
       });
     } else {
       // In-memory fallback mode
@@ -85,12 +93,19 @@ const registerUser = async (req, res, next) => {
 
       memoryUsers.set(id, memUser);
 
+      const token = generateToken(memUser._id);
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
       return res.status(201).json({
         _id: memUser._id,
         username: memUser.username,
         email: memUser.email,
         avatar: memUser.avatar,
-        token: generateToken(memUser._id)
+        token
       });
     }
   } catch (error) {
@@ -115,13 +130,20 @@ const loginUser = async (req, res, next) => {
 
     if (isDBConnected()) {
       const user = await User.findOne({ email: normalizedEmail });
-      if (user && (await user.matchPassword(password))) {
+        if (user && (await user.matchPassword(password))) {
+        const token = generateToken(user._id.toString());
+        res.cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000
+        });
         return res.json({
           _id: user._id.toString(),
           username: user.username,
           email: user.email,
           avatar: user.avatar,
-          token: generateToken(user._id.toString())
+          token
         });
       }
     } else {
@@ -135,12 +157,19 @@ const loginUser = async (req, res, next) => {
       }
 
       if (foundUser && (await bcrypt.compare(password, foundUser.password))) {
+        const token = generateToken(foundUser._id);
+        res.cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000
+        });
         return res.json({
           _id: foundUser._id,
           username: foundUser.username,
           email: foundUser.email,
           avatar: foundUser.avatar,
-          token: generateToken(foundUser._id)
+          token
         });
       }
     }
@@ -170,9 +199,24 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+/**
+ * @desc Logout user by clearing cookie
+ * @route POST /api/auth/logout
+ * @access Public
+ */
+const logoutUser = async (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+  return res.json({ message: 'Logged out' });
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
+  logoutUser,
   memoryUsers
 };

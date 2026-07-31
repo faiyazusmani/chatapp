@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 import api from '../../services/api';
 

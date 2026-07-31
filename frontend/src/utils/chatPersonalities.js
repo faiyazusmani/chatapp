@@ -129,7 +129,6 @@ export const CHAT_PERSONALITIES = [
       msgIncomingBg: 'rgba(6, 30, 15, 0.9)',
       msgIncomingText: '#4ade80',
       msgOutgoingBg: '#15803d',
-      msgOutgoingText: '#dc2626',
       msgOutgoingText: '#ffffff',
       chatBg: '#021008',
       sidebarBg: '#051c0e',

@@ -1435,6 +1435,31 @@ button {
 /* Keep @keyframes spin alias for any legacy use */
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Skeleton Shimmer Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    var(--bg-hover) 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-avatar {
+  border-radius: inherit;
+}
+
+.skeleton-text {
+  border-radius: 4px;
+}
+
 /* ============================================================
    MODAL OVERLAY (Create/Join Room)
    ============================================================ */
@@ -1524,6 +1549,7 @@ button {
   display: flex;
   height: 100%;
   flex-shrink: 0;
+  position: relative;
   transition: transform var(--transition-slide);
   z-index: var(--z-sidebar);
 }
@@ -1563,16 +1589,169 @@ input::placeholder, textarea::placeholder {
   text-shadow: var(--text-drop-shadow, none);
 }
 
-.msg-bubble-out {
+/* .msg-bubble-out {
   box-shadow: var(--theme-accent-glow, none);
+} */
+
+/* ════════════════════════════════════════════════════════════════
+   LIGHT THEME — Full WCAG-contrast palette
+   Activated by body.theme-light (set via ThemeContext mode toggle).
+   Every token flips; class-based components pick it up automatically.
+   ════════════════════════════════════════════════════════════════ */
+body.theme-light {
+  color: var(--color-text, #16181d);
+  background: var(--color-bg-window, #f2f4f8);
+  color-scheme: light;
+
+  /* ── Surfaces ── */
+  --color-bg-window:       #f2f4f8;
+  --color-bg-card:         #ffffff;
+  --color-bg-hover:        #eef1f6;
+  --color-bg-input:        #f3f5f9;
+  --color-bg-deep:         #e9edf3;
+  --color-bg-surface:      #f8fafc;
+  --color-bg-elevated:     #ffffff;
+
+  --color-border:          #d9dee8;
+  --color-border-dark:     #c9d0dd;
+  --color-border-subtle:   #e4e8f0;
+
+  /* ── Brand (unchanged hue, adjusted translucent variants) ── */
+  --color-primary-light:   rgba(124, 58, 237, 0.12);
+  --color-primary-glow:    rgba(124, 58, 237, 0.25);
+
+  /* ── Text (WCAG AA on #fff: main ≥7:1, secondary ≥4.5:1) ── */
+  --color-text:            #16181d;
+  --color-text-muted:      #4b5563;
+  --color-text-dim:        #5c6a84;
+  --color-text-bright:     #0b0d12;
+  --color-text-soft:       #1f2937;
+  --color-text-faint:      #475569;
+  --color-text-ghost:      #6b7280;
+
+  /* Translucent whites → translucent blacks (hover/active chips) */
+  --color-white-faint:     rgba(15, 23, 42, 0.04);
+  --color-white-subtle:    rgba(15, 23, 42, 0.06);
+  --color-white-light:     rgba(15, 23, 42, 0.08);
+  --color-white-muted:     rgba(15, 23, 42, 0.1);
+
+  /* ── Shadows (softer for light UI) ── */
+  --shadow-sm:   0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md:   0 4px 16px rgba(15, 23, 42, 0.1);
+  --shadow-lg:   0 12px 32px rgba(15, 23, 42, 0.14);
+  --shadow-xl:   0 16px 40px rgba(15, 23, 42, 0.16);
+  --shadow-2xl:  0 20px 50px rgba(15, 23, 42, 0.18);
+  --shadow-sidebar: 4px 0 20px rgba(15, 23, 42, 0.08);
+  --shadow-drawer:  0 0 30px rgba(15, 23, 42, 0.2);
+
+  /* ── Theme surface tokens (flip only when user did not override) ── */
+  --theme-chat-bg:      #eef1f6;
+  --theme-sidebar-bg:   #f7f9fc;
+  --theme-msg-in-bg:    #ffffff;
+
+  /* ── Theme text & bubble tokens ── */
+  --text-primary:       #101828;
+  --text-secondary:     #344054;
+  --text-muted:         #667085;
+  --icon-color:         #667085;
+  --border-color:       rgba(15, 23, 42, 0.1);
+  --bubble-text-in:     #1e293b;
+  --bubble-text-out:    #ffffff;
+  --input-text:         #101828;
+  --placeholder-color:  #98a2b3;
+  --header-text:        #101828;
+  --timestamp-color:    #667085;
+  --link-color:         #2563eb;
+  --reaction-bg:        rgba(15, 23, 42, 0.08);
+  --text-drop-shadow:   none;
 }
 
-body.theme-light {
-  color: var(--text-primary, #0f172a);
-}
+/* ── Component-level light fixes ─────────────────────────────────── */
 
 body.theme-light .scrollzone {
-  color: var(--text-primary, #0f172a);
+  color: var(--text-primary, #101828);
+}
+
+body.theme-light .msg-bubble-in {
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+/* Inputs & placeholders */
+body.theme-light input,
+body.theme-light textarea,
+body.theme-light select {
+  color: var(--input-text, #101828);
+  caret-color: var(--color-primary);
+}
+body.theme-light input::placeholder,
+body.theme-light textarea::placeholder {
+  color: var(--placeholder-color, #98a2b3);
+  opacity: 1;
+}
+
+/* Scrollbars */
+body.theme-light ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+body.theme-light ::-webkit-scrollbar-track {
+  background: var(--color-bg-window);
+}
+body.theme-light ::-webkit-scrollbar-thumb {
+  background: #c3cad6;
+  border-radius: 5px;
+  border: 2px solid var(--color-bg-window);
+}
+body.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #a9b2c2;
+}
+
+/* Links */
+body.theme-light a {
+  color: var(--link-color, #2563eb);
+}
+
+/* Modals / dropdowns / context menus (class-based surfaces) */
+body.theme-light .modal-card,
+body.theme-light .modal-box,
+body.theme-light .dropdown-menu,
+body.theme-light .context-menu {
+  background: var(--color-bg-elevated, #ffffff);
+  border-color: var(--color-border);
+  color: var(--text-primary, #101828);
+}
+
+/* Selected / active list items */
+body.theme-light .conv-item:hover,
+body.theme-light .conv-item.active,
+body.theme-light .list-item:hover {
+  background: var(--color-bg-hover, #eef1f6);
+}
+
+/* Disabled elements must stay readable */
+body.theme-light .disabled,
+body.theme-light [disabled],
+body.theme-light .btn:disabled {
+  color: var(--color-text-ghost, #6b7280);
+  opacity: 0.7;
+}
+
+/* Glassmorphism in light mode: white glass instead of dark glass */
+body.theme-light.theme-glass .gajim-body {
+  background: linear-gradient(rgba(255,255,255,0.6), rgba(242,244,248,0.7)),
+    url('https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1920&auto=format&fit=crop') center/cover no-repeat;
+}
+body.theme-light.theme-glass .conv-sidebar,
+body.theme-light.theme-glass .ws-sidebar {
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+}
+body.theme-light.theme-glass .msg-bubble {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.08);
 }
 
 /* AMOled Theme Override */
@@ -1621,6 +1800,91 @@ body.personality-gaming .msg-bubble {
 
 .personality-studio-modal {
   font-family: var(--theme-font), sans-serif;
+}
+
+/* ============================================================
+   MESSAGE FEATURES — multi-select, jump-to-latest, flash reply
+   ============================================================ */
+.message-row--selected {
+  background: var(--primary-light);
+  border-radius: var(--radius-md);
+}
+
+.msg-flash-highlight {
+  animation: msgFlash 1.8s ease;
+  border-radius: var(--radius-md);
+}
+@keyframes msgFlash {
+  0%   { background: var(--color-primary-glow); }
+  100% { background: transparent; }
+}
+
+.jump-to-latest-btn:hover {
+  background: var(--color-bg-hover);
+  transform: translateY(-2px);
+  transition: all var(--transition-fast);
+}
+
+/* Unread badge on conversation items */
+.unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Offline banner inside the chat feed */
+.offline-banner span {
+  color: var(--color-warning);
+  font-weight: 500;
+}
+
+/* Spinner (loading states) */
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error boundary fallback */
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg-window);
+  color: var(--text-main);
+}
+.error-boundary h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.error-boundary-detail {
+  max-width: 420px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  word-break: break-word;
 }
 
 /* ============================================================
@@ -1694,28 +1958,97 @@ body.personality-gaming .msg-bubble {
   .mobile-header-view  { display: flex; }
   .mobile-hamburger    { display: inline-flex; }
 
-  /* ── Sidebar: fixed drawer, slides in from left ── */
+  /* ── Sidebar (Rooms list): full-screen screen #1, visible by default ── */
   .gajim-sidebar-container {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
-    width: min(320px, 85vw);
+    width: 100vw;
     height: 100%;
+    height: 100dvh; /* keyboard-aware on modern mobile browsers */
     z-index: var(--z-drawer);
-    transform: translateX(-100%);
-    transition: transform var(--transition-slide);
+    transform: translateX(0);
+    transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: var(--shadow-drawer);
     padding-top: max(0px, env(safe-area-inset-top, 0px));
     padding-left: max(0px, env(safe-area-inset-left, 0px));
     background: var(--theme-sidebar-bg);
   }
 
-  .gajim-sidebar-container.mobile-open {
+  /* ── Chat screen: full-screen screen #2, off-canvas right by default ── */
+  .chat-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100%;
+    height: 100dvh; /* keyboard-aware on modern mobile browsers */
+    z-index: calc(var(--z-drawer) + 1);
+    transform: translateX(100%);
+    transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+    background: var(--theme-chat-bg);
+    padding-top: max(0px, env(safe-area-inset-top, 0px));
+  }
+
+  /* Chat open: rooms list slides left, chat slides in from the right */
+  .gajim-window.mobile-chat-open .gajim-sidebar-container {
+    transform: translateX(-100%);
+  }
+
+  .gajim-window.mobile-chat-open .chat-panel {
     transform: translateX(0);
   }
 
-  /* Hide ws-sidebar icons on small screens — conv-sidebar fills drawer */
+  /* ── Left icon rail: keep it accessible on phones (profile, calls, theme) ──
+     Narrow 48px rail so users can still open profile / call history / themes.
+     Chat-list panel takes the remaining width. */
+  .gajim-sidebar-container .left-sidebar {
+    display: flex;
+    width: 48px;
+    min-width: 48px;
+    padding: 8px 0;
+    gap: 2px;
+  }
+
+  .gajim-sidebar-container .left-sidebar .avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .gajim-sidebar-container .left-sidebar .nav-item {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .gajim-sidebar-container .left-sidebar .nav-item .tooltip {
+    display: none;
+  }
+
+  /* Chat-list panel fills the remaining width next to the 48px rail */
+  .gajim-sidebar-container .chat-list-panel {
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* Back arrow: prominent 44×44 touch target on mobile; hamburger hidden */
+  .chat-header .back-to-list-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chat-header .back-to-list-btn.hamburger {
+    display: none !important;
+  }
+
   .ws-sidebar {
     width: 44px;
     min-width: 44px;
@@ -1738,6 +2071,39 @@ body.personality-gaming .msg-bubble {
   /* ── Chat panel: full screen ── */
   .chat-header {
     padding: 0 var(--space-md);
+  }
+
+  /* Header: show only voice call + video call + ⋮; rest move into ⋮ menu */
+  .chat-header .header-action-studio,
+  .chat-header .header-action-select,
+  .chat-header .header-action-divider,
+  .chat-header .header-action-delete,
+  .chat-header .header-action-leave {
+    display: none !important;
+  }
+
+  .chat-header .header-action-more {
+    display: inline-flex;
+  }
+
+  .chat-header .header-action-more .icon-more-search { display: none; }
+  .chat-header .header-action-more .icon-more-dots { display: block; }
+
+  /* Composer: hide inline attach/encryption/voice/emoji — move into ⋮ menu */
+  .composer-action-attach,
+  .composer-action-encryption,
+  .composer-action-voice,
+  .composer-action-emoji {
+    display: none !important;
+  }
+
+  .composer-action-more {
+    display: inline-flex !important;
+  }
+
+  .composer-toolbar-left,
+  .composer-toolbar-right {
+    position: relative;
   }
 
   .chat-header-code {
@@ -1802,6 +2168,13 @@ body.personality-gaming .msg-bubble {
   .modal-overlay:not(.modal-overlay--centered) {
     align-items: flex-end;
     padding: 0;
+  }
+
+  /* Mobile: sidebar (2500) and chat-panel (2501) sit above --z-modal-base
+     (1500), which hides the Join/Create modal behind them. Force the modal
+     above the drawer stack so it is always visible on phones. */
+  .modal-overlay {
+    z-index: calc(var(--z-drawer) + 2);
   }
 
   /* Narrow modals (Create/Join Room) become bottom sheet */
@@ -1957,7 +2330,6 @@ body.personality-gaming .msg-bubble {
 
 /* ─── 5. LANDSCAPE MOBILE ───────────────────────────────── */
 @media (orientation: landscape) and (max-height: 500px) {
-
   /* Appearance Studio: two-column layout in landscape */
   .appearance-studio-modal {
     height: 100vh;
@@ -1984,6 +2356,23 @@ body.personality-gaming .msg-bubble {
   .chat-header {
     height: 44px;
     min-height: 44px;
+  }
+}
+
+/* ─── 6. ULTRA-WIDE (≥ 1920px) — readable column on 4K ───── */
+@media (min-width: 1920px) {
+  .chat-feed {
+    max-width: 1440px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Keep message rows aligned to the readable column */
+  .msg-row {
+    width: 100%;
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 

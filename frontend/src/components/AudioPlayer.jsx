@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-
+import { useState, useRef, useEffect } from 'react';
 export default function AudioPlayer({ src }) {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
 
   useEffect(() => {
@@ -54,13 +53,6 @@ export default function AudioPlayer({ src }) {
     const nextSpeed = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
     audioRef.current.playbackRate = nextSpeed;
     setSpeed(nextSpeed);
-  };
-
-  const formatTime = (secs) => {
-    if (!secs || isNaN(secs)) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
   };
 
   const handleSeek = (e) => {

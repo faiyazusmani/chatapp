@@ -88,17 +88,19 @@ export default function VoiceCallModal({
   const remoteAudioRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
-  // FIX: Store the target socket ID so ICE/SDP are routed peer-to-peer
+  const iceCheckingTimerRef = useRef(null);
+  // Store target peer socket ID for direct signaling (not room-broadcast)
   const targetSocketIdRef = useRef(null);
-
+  // Dev-only logging — stripped from production builds (import.meta.env.DEV is
+  // statically replaced by Vite, so the branch is tree-shaken)
   const log = (tag, ...args) => {
-    console.log(`[Voice ${tag}]`, ...args);
+    if (import.meta.env.DEV) console.log(`[Voice ${tag}]`, ...args);
   };
 
-  // Create & configure WebRTC RTCPeerConnection instance
+  // Create & initialize WebRTC peer connection
   const createPeerConnection = () => {
     const ICE_SERVERS = getIceServers();
-    console.log("ICE_SERVERS =", ICE_SERVERS);
+    if (import.meta.env.DEV) console.log('ICE_SERVERS =', ICE_SERVERS);
     log('PC', 'Creating RTCPeerConnection with ICE servers:', ICE_SERVERS.iceServers.map(s => s.urls));
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
@@ -157,7 +159,7 @@ export default function VoiceCallModal({
       setIceStatus(s);
 
       if (s === 'checking') {
-        window.voiceIceCheckingTimer = setTimeout(() => {
+        iceCheckingTimerRef.current = setTimeout(() => {
           if (pc.iceConnectionState === 'checking') {
             log('iceConnectionState', 'STUCK IN CHECKING for 12s — triggering ICE restart');
             setPeerStatus('Connection taking too long — retrying...');
@@ -165,7 +167,8 @@ export default function VoiceCallModal({
           }
         }, 12000);
       } else {
-        clearTimeout(window.voiceIceCheckingTimer);
+        clearTimeout(iceCheckingTimerRef.current);
+        iceCheckingTimerRef.current = null;
       }
 
       if (s === 'failed') {
@@ -498,7 +501,7 @@ export default function VoiceCallModal({
       }
     };
 
-    const handleCallIncoming = ({ offer, caller, fromSocket }) => {
+    const handleCallIncoming = ({ caller, fromSocket }) => {
       // Store the caller's socket ID for targeted signaling
       log('Incoming', 'Call incoming from socket:', fromSocket, 'user:', caller?.username);
       targetSocketIdRef.current = fromSocket;
@@ -528,6 +531,8 @@ export default function VoiceCallModal({
     }
 
     return () => {
+      clearTimeout(iceCheckingTimerRef.current);
+      handleEndCall();
       socket.off('call_incoming', handleCallIncoming);
       socket.off('call_answered', handleCallAnswered);
       socket.off('ice_candidate', handleIceCandidate);
@@ -543,7 +548,7 @@ export default function VoiceCallModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 17, 23, 0.88)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
       <div className="modal-box voice-modal" style={{ background: '#1D2129', border: '1px solid #313743', borderRadius: 16, padding: 24, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
         {/* FIX: Added playsInline to prevent mobile Safari autoplay block */}
-        <audio ref={remoteAudioRef} autoPlay playsInline />
+        <audio ref={remoteAudioRef} autoPlay />
 
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#7C3AED', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff' }}>
           📞

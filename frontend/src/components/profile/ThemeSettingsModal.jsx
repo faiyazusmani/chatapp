@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import '../../styles/gajim/gajim-provided.css';
 
@@ -11,8 +11,14 @@ const THEME_PRESETS = [
 ];
 
 export default function ThemeSettingsModal({ onClose }) {
-  const { theme, updateTheme, resetTheme } = useTheme();
+  const { theme, updateTheme, resetTheme, mode, setMode } = useTheme();
   const [localTheme, setLocalTheme] = useState(theme);
+
+  const MODES = [
+    { id: 'dark', label: '🌙', name: 'Dark' },
+    { id: 'light', label: '☀️', name: 'Light' },
+    { id: 'system', label: '🖥️', name: 'System' },
+  ];
 
   const handleApplyPreset = (preset) => {
     const newTheme = {
@@ -55,6 +61,46 @@ export default function ThemeSettingsModal({ onClose }) {
 
         {/* Body */}
         <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+          {/* Color Mode (Dark / Light / System) */}
+          <section>
+            <h4 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+              Mode
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setMode(m.id)}
+                  aria-pressed={mode === m.id}
+                  style={{
+                    padding: '10px 8px',
+                    borderRadius: 10,
+                    border: `2px solid ${mode === m.id ? 'var(--color-primary)' : 'var(--border-color)'}`,
+                    background: mode === m.id ? 'var(--primary-light)' : 'var(--bg-input)',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>{m.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-main)' }}>{m.name}</span>
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+              {mode === 'system'
+                ? 'Following your device setting automatically.'
+                : mode === 'light'
+                  ? 'Light surfaces with dark text (WCAG AA contrast).'
+                  : 'Dark surfaces with light text (default).'}
+            </p>
+          </section>
 
           {/* Presets */}
           <section>

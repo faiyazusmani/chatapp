@@ -5,30 +5,22 @@ import { connectSocket, disconnectSocket } from '../services/socket';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Initialize auth state from localStorage and verify profile
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-        connectSocket(storedToken);
-
-        // Verify token with profile endpoint
-        try {
-          const response = await api.get('/auth/profile');
-          setUser(response.data);
-          localStorage.setItem('user', JSON.stringify(response.data));
-        } catch (err) {
-          console.warn('[AuthContext] Stored session invalid or expired');
-          logout();
-        }
+      try {
+        const response = await api.get('/auth/profile');
+        setUser(response.data);
+        localStorage.setItem('user', JSON.stringify(response.data));
+        // connect socket relying on cookie-based auth
+        connectSocket();
+      } catch (err) {
+        // No active session on server
+        setUser(null);
+        localStorage.removeItem('user');
       }
       setLoading(false);
     };
@@ -41,14 +33,13 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const response = await api.post('/auth/register', { username, email, password });
-      const { token: newToken, ...userData } = response.data;
+      const userData = { ...response.data };
+      delete userData.token; // token lives in HttpOnly cookie
 
-      localStorage.setItem('token', newToken);
+      // Keep localStorage user for quick reads; token is stored HttpOnly in cookie
       localStorage.setItem('user', JSON.stringify(userData));
-
-      setToken(newToken);
       setUser(userData);
-      connectSocket(newToken);
+      connectSocket();
 
       return { success: true };
     } catch (err) {
@@ -63,14 +54,12 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const response = await api.post('/auth/login', { email, password });
-      const { token: newToken, ...userData } = response.data;
+      const userData = { ...response.data };
+      delete userData.token; // token lives in HttpOnly cookie
 
-      localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(userData));
-
-      setToken(newToken);
       setUser(userData);
-      connectSocket(newToken);
+      connectSocket();
 
       return { success: true };
     } catch (err) {
@@ -82,10 +71,14 @@ export function AuthProvider({ children }) {
 
   // Logout user
   const logout = () => {
-    localStorage.removeItem('token');
+    // Inform server to clear cookie
+    try {
+      api.post('/auth/logout');
+    } catch (err) {
+      // ignore
+    }
     localStorage.removeItem('user');
     disconnectSocket();
-    setToken(null);
     setUser(null);
     setError(null);
   };
@@ -100,7 +93,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        token,
+        // token is stored server-side in an HttpOnly cookie
         loading,
         error,
         setError,
@@ -108,7 +101,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         updateLocalUser,
-        isAuthenticated: !!user && !!token,
+        isAuthenticated: !!user,
       }}
     >
       {children}

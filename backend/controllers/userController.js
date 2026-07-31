@@ -1,8 +1,12 @@
 const User = require('../models/User');
+const Message = require('../models/Message');
 const mongoose = require('mongoose');
+const logger = require('../utils/logger');
 const { memoryUsers } = require('./authController');
 
 const isDBConnected = () => mongoose.connection.readyState === 1;
+
+const getUserId = (req) => (req.user?._id ? req.user._id.toString() : req.user?.id);
 
 /**
  * @desc    Get user profile by ID
@@ -75,6 +79,26 @@ const updateProfile = async (req, res, next) => {
       if (req.body.avatar) user.avatar = req.body.avatar;
       if (req.body.bannerImage) user.bannerImage = req.body.bannerImage;
 
+      // Privacy settings (Gajim-style account privacy)
+      if (req.body.privacy && typeof req.body.privacy === 'object') {
+        const allowedKeys = ['showOnline', 'showLastSeen', 'showReadReceipts', 'allowMessagesFrom'];
+        for (const key of allowedKeys) {
+          if (req.body.privacy[key] !== undefined) {
+            user.privacy[key] = req.body.privacy[key];
+          }
+        }
+      }
+
+      // Notification preferences
+      if (req.body.notificationPrefs && typeof req.body.notificationPrefs === 'object') {
+        const allowedKeys = ['soundEnabled', 'desktopEnabled', 'notifyOnMessage'];
+        for (const key of allowedKeys) {
+          if (req.body.notificationPrefs[key] !== undefined) {
+            user.notificationPrefs[key] = req.body.notificationPrefs[key];
+          }
+        }
+      }
+
       const updatedUser = await user.save();
       const userObj = updatedUser.toObject();
       delete userObj.password;
@@ -114,7 +138,7 @@ const updateProfile = async (req, res, next) => {
 
     return res.status(404).json({ message: 'User not found' });
   } catch (error) {
-    console.error('[updateProfile Error]', error);
+    logger.error('[updateProfile Error]', error);
     if (error.code === 11000) {
       return res.status(400).json({ message: 'Username is already taken' });
     }
@@ -206,7 +230,69 @@ const updatePersonality = async (req, res, next) => {
 
     return res.status(404).json({ message: 'User not found' });
   } catch (error) {
-    console.error('[updatePersonality Error]', error);
+    logger.error('[updatePersonality Error]', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Search users by username / full name / email (Gajim-style roster search)
+ * @route   GET /api/users/search?q=term
+ * @access  Private
+ */
+const searchUsers = async (req, res, next) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.status(400).json({ message: 'Search query is required' });
+    if (q.length < 2) return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit) || 10));
+    const currentUserId = getUserId(req);
+
+    if (isDBConnected()) {
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const users = await User.find({
+        _id: { $ne: currentUserId },
+        $or: [
+          { username: { $regex: escaped, $options: 'i' } },
+          { fullName: { $regex: escaped, $options: 'i' } },
+          { email: { $regex: escaped, $options: 'i' } }
+        ]
+      })
+        .select('username email avatar fullName bio status lastSeen')
+        .limit(limit);
+      return res.json({ users });
+    }
+
+    // Memory fallback
+    const users = Array.from(memoryUsers.values())
+      .filter((u) => String(u._id) !== String(currentUserId))
+      .filter((u) => (u.username || '').toLowerCase().includes(q.toLowerCase()) || (u.email || '').toLowerCase().includes(q.toLowerCase()))
+      .slice(0, limit);
+    return res.json({ users });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get user's starred (bookmarked) messages
+ * @route   GET /api/users/starred
+ * @access  Private
+ */
+const getStarredMessages = async (req, res, next) => {
+  try {
+    const userId = getUserId(req);
+    if (!isDBConnected()) {
+      return res.json({ messages: [] });
+    }
+    const messages = await Message.find({ starredBy: userId })
+      .populate('sender', 'username email avatar')
+      .populate('room', 'name code')
+      .sort({ createdAt: -1 })
+      .limit(100);
+    return res.json({ messages });
+  } catch (error) {
     next(error);
   }
 };
@@ -215,5 +301,7 @@ module.exports = {
   getUserById,
   updateProfile,
   updateTheme,
-  updatePersonality
+  updatePersonality,
+  searchUsers,
+  getStarredMessages
 };

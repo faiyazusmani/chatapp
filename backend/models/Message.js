@@ -55,7 +55,29 @@ const messageSchema = new mongoose.Schema(
     isDeleted: {
       type: Boolean,
       default: false
-    }
+    },
+    // Gajim-style message features
+    // "Delete for me": hides the message locally for those users
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    // Starred / bookmarked messages
+    starredBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    // Message delivery receipts (Gajim: sent → delivered → read)
+    deliveredTo: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ]
   },
   {
     timestamps: true
@@ -64,6 +86,11 @@ const messageSchema = new mongoose.Schema(
 
 // Compound Index for room message querying performance
 messageSchema.index({ room: 1, createdAt: 1 });
+// Optimize: latest-message-per-room & read-receipt scans
+messageSchema.index({ room: 1, isDeleted: 1, createdAt: -1 });
+messageSchema.index({ sender: 1, createdAt: -1 });
+// Text index for message search
+messageSchema.index({ content: 'text' });
 
 const Message = mongoose.model('Message', messageSchema);
 

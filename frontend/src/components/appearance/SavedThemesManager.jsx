@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAppearance } from '../../context/AppearanceContext';
 
 export default function SavedThemesManager() {
@@ -64,7 +64,7 @@ export default function SavedThemesManager() {
         </div>
         {savedList.length === 0 ? (
           <div style={{ fontSize: 12, color: '#6b7280', padding: '16px 0', textAlign: 'center', background: '#13151c', borderRadius: 8 }}>
-            No saved themes yet. Customize your settings above and click "Save Current"!
+            No saved themes yet. Customize your settings above and click &quot;Save Current&quot;!
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

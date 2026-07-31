@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-
+import { useState, useRef, useEffect } from 'react';
 export default function VoiceRecorder({ onCancel, onSend }) {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -70,6 +69,9 @@ export default function VoiceRecorder({ onCancel, onSend }) {
     }
   };
 
+  // Mount-once: auto-start recording when the recorder appears.
+  // startRecording is intentionally excluded — it is recreated every render
+  // and including it would restart recording on every render.
   useEffect(() => {
     startRecording();
     return () => {
@@ -79,7 +81,7 @@ export default function VoiceRecorder({ onCancel, onSend }) {
       }
       clearInterval(timerRef.current);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-once auto-start
 
   const formatDuration = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');

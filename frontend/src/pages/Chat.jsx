@@ -1,40 +1,111 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
 import ChatWindow from '../components/ChatWindow';
+import ErrorBoundary from '../components/ErrorBoundary';
 import CallHistoryPage from './CallHistoryPage';
 import api from '../services/api';
+import { socket } from '../services/socket';
+import { useAuth } from '../context/useAuth';
+import { requestNotificationPermission, showDesktopNotification } from '../utils/desktopNotifications';
 
 export default function Chat() {
+  const { user } = useAuth();
   const [rooms, setRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
   const [activeRoom, setActiveRoom] = useState(null);
   const [joinedRooms, setJoinedRooms] = useState([]);
   const [recentRooms, setRecentRooms] = useState([]);
 
   const [activeTab, setActiveTab] = useState('explore'); // 'explore' | 'joined'
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory] = useState('All');
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  // Room that triggered the join-code modal (private room without access)
+  const [pendingJoinRoom, setPendingJoinRoom] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
+
+  // Unread counts per room (roomId -> count) for badges + document.title
+  const [unreadCounts, setUnreadCounts] = useState({});
 
   // Responsive UI state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // Instagram-style: mobile chat screen open (rooms list slides left, chat slides in from right)
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const mobileChatOpenRef = useRef(false);
+  mobileChatOpenRef.current = mobileChatOpen;
 
-  const showToast = (msg) => {
+  // When the viewport crosses back to desktop, reset the mobile chat screen
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768 && mobileChatOpenRef.current) {
+        setMobileChatOpen(false);
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Browser back button / mobile back gesture support:
+  // We push a history entry when the mobile chat opens (same URL), so that
+  // pressing back pops OUR entry, fires popstate, and closes the chat instead
+  // of navigating away from the app.
+  useEffect(() => {
+    const onPopState = () => {
+      if (window.innerWidth < 768 && mobileChatOpenRef.current) {
+        setMobileChatOpen(false);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Open the mobile chat screen, pushing a history entry so browser-back
+  // closes the chat instead of leaving the app.
+  const openMobileChat = useCallback(() => {
+    if (!mobileChatOpenRef.current) {
+      try {
+        window.history.pushState({ chatAppChatOpen: true }, '');
+      } catch {
+        /* history API unavailable — chat still opens, back exits the app */
+      }
+    }
+    setMobileChatOpen(true);
+  }, []);
+
+  // Close the mobile chat screen. If we pushed a history entry, pop it so
+  // the history stack stays consistent with the visible screen.
+  const closeMobileChat = useCallback(() => {
+    setMobileChatOpen(false);
+    if (window.history.state?.chatAppChatOpen) {
+      try {
+        window.history.back();
+      } catch {
+        /* noop */
+      }
+    }
+  }, []);
+
+  const showToast = useCallback((msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 4000);
-  };
+  }, []);
 
   // Fetch all rooms from backend API
   const fetchRooms = async () => {
     try {
+      setRoomsLoading(true);
       const response = await api.get('/rooms');
-      setRooms(response.data);
+      // Backend returns { rooms: [...], total, page, hasMore } — unwrap defensively
+      const data = response.data;
+      setRooms(Array.isArray(data) ? data : data?.rooms || []);
     } catch (err) {
       console.error('[Rooms Error] Failed to fetch rooms:', err);
+    } finally {
+      setRoomsLoading(false);
     }
   };
 
@@ -42,10 +113,110 @@ export default function Chat() {
     fetchRooms();
   }, []);
 
-  // Handle Select Room
-  const handleSelectRoom = (room) => {
+  // ── Unread tracking + desktop notifications ────────────────────────
+  // Request notification permission once on first user gesture
+  useEffect(() => {
+    const requestOnce = () => {
+      requestNotificationPermission();
+      window.removeEventListener('pointerdown', requestOnce);
+    };
+    window.addEventListener('pointerdown', requestOnce);
+    return () => window.removeEventListener('pointerdown', requestOnce);
+  }, []);
+
+  // Count unread messages for rooms that aren't the active, visible one
+  useEffect(() => {
+    const onReceive = (newMsg) => {
+      const roomKey = newMsg.room;
+      if (!roomKey) return;
+      const senderId = newMsg.sender?._id || newMsg.sender?.id;
+      const myId = user?._id || user?.id;
+      if (senderId === myId) return; // never count your own messages
+
+      const isActiveRoom = activeRoom && (activeRoom._id || activeRoom.id) === roomKey;
+      // On mobile the active room only counts as "being read" while the chat screen is open
+      const chatVisible = window.innerWidth >= 768 || mobileChatOpenRef.current;
+      const isVisible = !document.hidden && document.hasFocus();
+
+      if (isActiveRoom && chatVisible && isVisible) return; // reading it right now
+
+      setUnreadCounts((prev) => ({ ...prev, [roomKey]: (prev[roomKey] || 0) + 1 }));
+
+      // Desktop notification only while the tab is backgrounded
+      if (!isVisible) {
+        showDesktopNotification(
+          'ChatApp — New Message',
+          `${newMsg.sender?.username || 'Someone'}: ${newMsg.content || 'Sent a file'}`,
+          roomKey
+        );
+      }
+    };
+    socket.on('receive_message', onReceive);
+    return () => socket.off('receive_message', onReceive);
+  }, [activeRoom, user]);
+
+  // Reflect unread totals in the tab title
+  useEffect(() => {
+    const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+    document.title = total > 0 ? `(${total}) ChatApp` : 'ChatApp';
+  }, [unreadCounts]);
+
+  // When the tab regains focus, clear unread for the open room (only while the
+  // chat screen is actually visible — on mobile, that means mobileChatOpen)
+  useEffect(() => {
+    const onVisible = () => {
+      const chatVisible = window.innerWidth >= 768 || mobileChatOpenRef.current;
+      if (!document.hidden && activeRoom && chatVisible) {
+        const roomKey = activeRoom._id || activeRoom.id;
+        if (roomKey) {
+          setUnreadCounts((prev) => {
+            if (!prev[roomKey]) return prev;
+            const next = { ...prev };
+            delete next[roomKey];
+            return next;
+          });
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [activeRoom]);
+
+  // Handle Select Room — must be declared BEFORE any ref/hook that uses it
+  const handleSelectRoom = useCallback((room) => {
+    // Private room: user must be a member OR the creator to enter directly.
+    // Otherwise, open the join-code modal so they can enter the room code.
+    if (room.isPrivate) {
+      const userId = user?._id || user?.id;
+      const memberIds = (room.members || []).map(m => (m._id || m.id || m).toString());
+      const isCreator = room.owner && (userId === room.owner._id || userId === room.owner);
+
+      if (!memberIds.includes(userId?.toString()) && !isCreator) {
+        setPendingJoinRoom(room);
+        setIsJoinModalOpen(true);
+        return;
+      }
+    }
+
     setActiveRoom(room);
-    setIsMobileSidebarOpen(false);
+    // On mobile, open the full-screen chat (Instagram-style slide)
+    if (window.innerWidth < 768) {
+      openMobileChat();
+    }
+    // Opening a room clears its unread count
+    const roomKey = room._id || room.id;
+    if (roomKey) {
+      setUnreadCounts((prev) => {
+        if (!prev[roomKey]) return prev;
+        const next = { ...prev };
+        delete next[roomKey];
+        return next;
+      });
+    }
 
     setRecentRooms((prev) => {
       const filtered = prev.filter((r) => (r._id || r.id) !== (room._id || room.id));
@@ -56,7 +227,24 @@ export default function Chat() {
       if (prev.some((r) => (r._id || r.id) === (room._id || room.id))) return prev;
       return [...prev, room];
     });
-  };
+  }, [user, openMobileChat]);
+
+  // Desktop notification click → navigate to the room
+  const handleSelectRoomRef = useRef();
+  handleSelectRoomRef.current = handleSelectRoom;
+
+  useEffect(() => {
+    const onNavigate = (e) => {
+      const { roomId } = e.detail || {};
+      if (!roomId) return;
+      const target = rooms.find((r) => (r._id || r.id) === roomId) || joinedRooms.find((r) => (r._id || r.id) === roomId);
+      if (target) {
+        handleSelectRoomRef.current(target);
+      }
+    };
+    window.addEventListener('chat-navigate', onNavigate);
+    return () => window.removeEventListener('chat-navigate', onNavigate);
+  }, [rooms, joinedRooms]);
 
   // Handle Create Room
   const handleCreateRoom = async (newRoomData) => {
@@ -81,6 +269,7 @@ export default function Chat() {
         const exists = prev.some((r) => (r._id || r.id) === (joinedRoom._id || joinedRoom.id));
         return exists ? prev : [joinedRoom, ...prev];
       });
+      setPendingJoinRoom(null);
       handleSelectRoom(joinedRoom);
       showToast(`Joined room "${joinedRoom.name}"!`);
     } catch (err) {
@@ -96,6 +285,10 @@ export default function Chat() {
       setJoinedRooms((prev) => prev.filter((r) => (r._id || r.id) !== roomId));
       setRecentRooms((prev) => prev.filter((r) => (r._id || r.id) !== roomId));
       setActiveRoom(null);
+      // Mobile: return to the rooms list screen after leaving
+      if (window.innerWidth < 768) {
+        setMobileChatOpen(false);
+      }
       fetchRooms();
       showToast('You have left the room.');
     } catch (err) {
@@ -114,10 +307,10 @@ export default function Chat() {
   });
 
   return (
-    <div className="gajim-window">
+    <div className={`gajim-window ${mobileChatOpen ? 'mobile-chat-open' : ''}`}>
       <div className="gajim-body">
 
-        {/* Sidebar */}
+        {/* Sidebar (Rooms list) */}
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -129,11 +322,13 @@ export default function Chat() {
           onSelectRoom={handleSelectRoom}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          unreadCounts={unreadCounts}
+          roomsLoading={roomsLoading}
           isMobileSidebarOpen={isMobileSidebarOpen}
           setIsMobileSidebarOpen={setIsMobileSidebarOpen}
         />
 
-        {/* Main workspace */}
+        {/* Main workspace (Chat screen) */}
         <main className="chat-panel">
           {activeTab === 'calls' ? (
             <CallHistoryPage />
@@ -141,12 +336,21 @@ export default function Chat() {
             <>
               {/* Active room */}
               {activeRoom ? (
-                <ChatWindow
-                  room={activeRoom}
-                  onLeaveRoom={handleLeaveRoom}
-                  onBack={() => setActiveRoom(null)}
-                  onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
-                />
+                <ErrorBoundary>
+                  <ChatWindow
+                    room={activeRoom}
+                    onLeaveRoom={handleLeaveRoom}
+                    onBack={() => {
+                      // Mobile: return to rooms list (keep chat state, don't unmount)
+                      if (window.innerWidth < 768) {
+                        closeMobileChat();
+                      } else {
+                        setActiveRoom(null);
+                      }
+                    }}
+                    onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+                  />
+                </ErrorBoundary>
               ) : (
                 /* Empty state */
                 <div className="empty-chat-state" style={{ background: 'var(--theme-chat-bg)' }}>
@@ -199,8 +403,9 @@ export default function Chat() {
       />
       <JoinRoomModal
         isOpen={isJoinModalOpen}
-        onClose={() => setIsJoinModalOpen(false)}
+        onClose={() => { setPendingJoinRoom(null); setIsJoinModalOpen(false); }}
         onJoinRoom={handleJoinRoom}
+        roomName={pendingJoinRoom?.name}
       />
     </div>
   );
