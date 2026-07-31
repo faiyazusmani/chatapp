@@ -197,18 +197,29 @@ const getAllRooms = async (req, res, next) => {
         return memberIds.includes(userId.toString());
       });
 
-      const formatted = accessibleRooms.map((r) => ({
-        _id: r._id.toString(),
-        id: r._id.toString(),
-        name: r.name,
-        code: r.code,
-        category: r.category,
-        description: r.description,
-        isPrivate: r.isPrivate,
-        owner: r.owner,
-        membersCount: r.members ? r.members.length : 0,
-        createdAt: r.createdAt
-      }));
+      // 🔒 SECURITY: room code is a join credential — only expose it to
+      // members/creator. Non-members must not be able to read codes from the
+      // list API and join private rooms without an invite.
+      const formatted = accessibleRooms.map((r) => {
+        const memberIds = (r.members || []).map((m) => m.toString());
+        const isMember = memberIds.includes(userId.toString());
+        const isOwner = r.owner && (r.owner._id?.toString() === userId.toString() || r.owner.toString() === userId.toString());
+        return {
+          _id: r._id.toString(),
+          id: r._id.toString(),
+          name: r.name,
+          code: isMember || isOwner ? r.code : undefined,
+          category: r.category,
+          description: r.description,
+          isPrivate: r.isPrivate,
+          owner: r.owner,
+          // Tells the frontend whether this user may open the room directly
+          // (members/creator) without exposing the full member list.
+          isMember: isMember || isOwner,
+          membersCount: r.members ? r.members.length : 0,
+          createdAt: r.createdAt
+        };
+      });
 
       return res.json({ rooms: formatted, total: formatted.length, page, hasMore: skip + formatted.length < total });
     }
@@ -221,7 +232,19 @@ const getAllRooms = async (req, res, next) => {
         if (!r.isPrivate) return true;
         return (r.members || []).includes(userId);
       })
-      .map((r) => ({ ...r, id: r._id, membersCount: r.members ? r.members.length : 0 }));
+      // 🔒 SECURITY: same as DB path — code only for members/creator, and
+      // never leak the inviteCode through the list endpoint.
+      .map((r) => {
+        const isMember = (r.members || []).includes(userId);
+        const isOwner = r.owner === userId || r.owner?._id === userId;
+        const { code, inviteCode, ...rest } = r;
+        return {
+          ...rest,
+          id: r._id,
+          code: isMember || isOwner ? code : undefined,
+          membersCount: r.members ? r.members.length : 0
+        };
+      });
     return res.json({ rooms: rooms.slice(skip, skip + limit), total: rooms.length, page, hasMore: skip + limit < rooms.length });
   } catch (error) {
     next(error);
@@ -247,7 +270,9 @@ const getRoomByCode = async (req, res, next) => {
         return res.status(404).json({ message: 'Room not found with that code' });
       }
 
-      return res.json(room);
+      // 🔒 SECURITY: never expose inviteCode (or the raw doc) via this route
+      const { inviteCode, ...safeRoom } = room.toObject();
+      return res.json(safeRoom);
     }
 
     seedDefaultMemoryRooms();
@@ -263,8 +288,10 @@ const getRoomByCode = async (req, res, next) => {
       return res.status(404).json({ message: 'Room not found with that code' });
     }
 
+    // 🔒 SECURITY: strip inviteCode from memory-room responses too
+    const { inviteCode, ...safeFound } = found;
     return res.json({
-      ...found,
+      ...safeFound,
       id: found._id,
       membersCount: found.members.length
     });
@@ -315,7 +342,9 @@ const joinRoomByCode = async (req, res, next) => {
         .populate('owner', 'username email avatar')
         .populate('members', 'username email avatar');
 
-      return res.json(populated);
+      // 🔒 SECURITY: strip inviteCode from join responses
+      const { inviteCode, ...safePopulated } = populated.toObject();
+      return res.json(safePopulated);
     }
 
     seedDefaultMemoryRooms();
@@ -389,7 +418,9 @@ const joinRoomByInvite = async (req, res, next) => {
       .populate('owner', 'username email avatar')
       .populate('members', 'username email avatar');
 
-    return res.json(populated);
+    // 🔒 SECURITY: strip inviteCode from invite-link join responses too
+    const { inviteCode: _inviteCode, ...safePopulated } = populated.toObject();
+    return res.json(safePopulated);
   } catch (error) {
     next(error);
   }

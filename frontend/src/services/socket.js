@@ -1,6 +1,10 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+// Production: same-origin by default (Vercel frontend + Render backend behind
+// the same domain via rewrites). Override with VITE_SOCKET_URL when split-hosted.
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  (import.meta.env.PROD ? window.location.origin : 'http://localhost:5000');
 
 /**
  * Socket.io client instance.

@@ -194,8 +194,9 @@ export default function Chat() {
       const userId = user?._id || user?.id;
       const memberIds = (room.members || []).map(m => (m._id || m.id || m).toString());
       const isCreator = room.owner && (userId === room.owner._id || userId === room.owner);
+      const isMember = room.isMember === true || memberIds.includes(userId?.toString());
 
-      if (!memberIds.includes(userId?.toString()) && !isCreator) {
+      if (!isMember && !isCreator) {
         setPendingJoinRoom(room);
         setIsJoinModalOpen(true);
         return;

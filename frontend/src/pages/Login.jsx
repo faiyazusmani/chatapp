@@ -66,14 +66,13 @@ export default function Login() {
     setError(null);
     try {
       const response = await api.post('/auth/google', { idToken });
-      const userData = { ...response.data };
-      delete userData.token; // token lives in HttpOnly cookie
-
-      // Server stores JWT in an HttpOnly cookie. Keep a lightweight local user cache.
+      const { token, ...userData } = response.data;
+      // Keep token in localStorage for Authorization header (works cross-origin)
+      if (token) localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
 
-      // Connect socket (server will authenticate via cookie) and redirect
-      connectSocket();
+      // Connect socket (authenticated via Bearer token) and redirect
+      connectSocket(token || undefined);
       window.location.href = redirectPath;
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Google login failed.';

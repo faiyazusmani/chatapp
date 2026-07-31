@@ -23,3 +23,5 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        value: 198016649152-gsu4t27m9o47ovbho2eg0fefr42588rq.apps.googleusercontent.com

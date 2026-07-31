@@ -714,6 +714,23 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     return name.substring(0, 2).toUpperCase();
   };
 
+  // 🔒 SECURITY: room code is only shown to members/creator — never to
+  // someone who just opened the room without joining it.
+  const isRoomMember = (room, u) => {
+    if (!room || !u) return false;
+    // List API sends isMember flag; join/create responses send members array
+    if (room.isMember === true) return true;
+    const uid = String(u._id || u.id || '');
+    return (room.members || []).some((m) => String(m._id || m.id || m) === uid);
+  };
+  const isRoomCreator = (room, u) => {
+    if (!room || !u) return false;
+    const uid = String(u._id || u.id || '');
+    const owner = room.owner;
+    if (!owner) return false;
+    return String(owner._id || owner.id || owner) === uid;
+  };
+
   const typingArray = Array.from(typingUsers);
 
   return (
@@ -788,7 +805,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                       </span>
                   </div>
                   <p className="contact-status-text" id="header-status-text">
-                    {room.code ? `Code: ${room.code}` : 'Encrypted XMPP Session'}
+                    {room.code && (isRoomMember(room, user) || isRoomCreator(room, user)) ? `Code: ${room.code}` : 'Encrypted XMPP Session'}
                   </p>
               </div>
           </div>

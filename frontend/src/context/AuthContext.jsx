@@ -3,6 +3,12 @@ import { AuthContext } from './createAuthContext';
 import api from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 
+// 🔒 Cross-origin deployments (Vercel frontend + Render backend) cannot rely
+// on SameSite=Lax HttpOnly cookies — the cookie is not sent cross-site.
+// We keep the JWT in localStorage and send it as `Authorization: Bearer`
+// (the backend `protect` middleware already supports both).
+export const getStoredToken = () => localStorage.getItem('token');
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,8 +21,8 @@ export function AuthProvider({ children }) {
         const response = await api.get('/auth/profile');
         setUser(response.data);
         localStorage.setItem('user', JSON.stringify(response.data));
-        // connect socket relying on cookie-based auth
-        connectSocket();
+        // Connect socket with the stored token (Bearer header auth)
+        connectSocket(getStoredToken() || undefined);
       } catch (err) {
         // No active session on server
         setUser(null);
@@ -33,13 +39,12 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const response = await api.post('/auth/register', { username, email, password });
-      const userData = { ...response.data };
-      delete userData.token; // token lives in HttpOnly cookie
-
-      // Keep localStorage user for quick reads; token is stored HttpOnly in cookie
+      const { token, ...userData } = response.data;
+      // Keep token in localStorage for Authorization header (works cross-origin)
+      if (token) localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      connectSocket();
+      connectSocket(token || undefined);
 
       return { success: true };
     } catch (err) {
@@ -54,12 +59,12 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const response = await api.post('/auth/login', { email, password });
-      const userData = { ...response.data };
-      delete userData.token; // token lives in HttpOnly cookie
-
+      const { token, ...userData } = response.data;
+      // Keep token in localStorage for Authorization header (works cross-origin)
+      if (token) localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      connectSocket();
+      connectSocket(token || undefined);
 
       return { success: true };
     } catch (err) {
@@ -78,6 +83,7 @@ export function AuthProvider({ children }) {
       // ignore
     }
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     disconnectSocket();
     setUser(null);
     setError(null);

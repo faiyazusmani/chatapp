@@ -2073,6 +2073,15 @@ body.personality-gaming .msg-bubble {
     padding: 0 var(--space-md);
   }
 
+  /* Room code must stay visible on phones — let the status line wrap
+     instead of truncating (nowrap + ellipsis clips it on narrow screens). */
+  .chat-header .contact-status-text {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.3;
+  }
+
   /* Header: show only voice call + video call + ⋮; rest move into ⋮ menu */
   .chat-header .header-action-studio,
   .chat-header .header-action-select,
