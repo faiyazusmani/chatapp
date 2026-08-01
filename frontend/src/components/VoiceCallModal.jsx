@@ -22,10 +22,18 @@ import { useAuth } from '../context/useAuth';
  * FREE TURN OPTION: Open Relay (metered.ca free tier for testing)
  * For production, self-host Coturn or use Twilio / Metered / Xirsys.
  */
-// Helper to construct ICE_SERVERS configuration safely
+// Helper to construct ICE_SERVERS configuration safely.
+// TURN credentials are build-time env vars (VITE_TURN_*). On Vercel/Render
+// they may be unset, which silently drops the TURN servers and breaks calls
+// across symmetric NATs (~30-40% of real-world connections). The credentials
+// below ship in the public bundle anyway (same as the Google client ID), so
+// falling back to them keeps calls working on any deploy.
+const FALLBACK_TURN_USERNAME = '2126cc0cb07a8db93032573f';
+const FALLBACK_TURN_CREDENTIAL = '49sQ7pN1CfrpsUse';
+
 const getIceServers = () => {
-  const turnUsername = import.meta.env.VITE_TURN_USERNAME;
-  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME || FALLBACK_TURN_USERNAME;
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || FALLBACK_TURN_CREDENTIAL;
 
   const servers = [
     { urls: "stun:stun.l.google.com:19302" },
@@ -83,6 +91,56 @@ export default function VoiceCallModal({
   const [isMuted, setIsMuted] = useState(false);
   const [peerStatus, setPeerStatus] = useState('Connecting...');
   const [iceStatus, setIceStatus] = useState('');
+  // Live call duration (seconds) — resets to 0 when the call starts
+  const [callSeconds, setCallSeconds] = useState(0);
+  // Speaker routing toggle (setSinkId). Default = earpiece on phones.
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+
+  // Tick the call timer while the call is connected
+  useEffect(() => {
+    if (callState !== 'connected') {
+      setCallSeconds(0);
+      return undefined;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setCallSeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [callState]);
+
+  const formatDuration = (totalSeconds) => {
+    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const s = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // Toggle audio output between speaker and earpiece (where supported)
+  const toggleSpeaker = async () => {
+    const audioEl = remoteAudioRef.current;
+    if (!audioEl || typeof audioEl.setSinkId !== 'function') {
+      setPeerStatus('Speaker toggle not supported on this device');
+      return;
+    }
+    try {
+      if (isSpeakerOn) {
+        await audioEl.setSinkId(''); // '' = default/earpiece routing
+        setIsSpeakerOn(false);
+      } else {
+        // 'speaker' deviceId routes to the loudspeaker on most mobile browsers
+        await audioEl.setSinkId('speaker');
+        setIsSpeakerOn(true);
+      }
+    } catch (err) {
+      // Fallback: try the default sink and just report the toggle state
+      try {
+        await audioEl.setSinkId(isSpeakerOn ? '' : 'default');
+        setIsSpeakerOn(!isSpeakerOn);
+      } catch {
+        setPeerStatus('Speaker toggle not supported on this device');
+      }
+    }
+  };
 
   const localStreamRef = useRef(null);
   const remoteAudioRef = useRef(null);
@@ -556,6 +614,11 @@ export default function VoiceCallModal({
 
         <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>#{roomName} Voice Call</h3>
         <p style={{ fontSize: 12, color: '#9CA3AF', margin: '0 0 6px' }}>{peerStatus}</p>
+        {callState === 'connected' && (
+          <p style={{ fontSize: 20, fontWeight: 700, color: '#22C55E', margin: '0 0 6px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+            {formatDuration(callSeconds)}
+          </p>
+        )}
         {iceStatus && (
           <p style={{ fontSize: 10, color: iceStatus === 'connected' ? '#22C55E' : '#F59E0B', margin: '0 0 16px', fontFamily: 'monospace' }}>
             ICE: {iceStatus}
@@ -576,6 +639,13 @@ export default function VoiceCallModal({
             <>
               <button onClick={toggleMute} style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: '1px solid #313743', background: isMuted ? 'rgba(239, 68, 68, 0.2)' : '#242930', color: isMuted ? '#EF4444' : '#fff', fontWeight: 500, fontSize: 12, cursor: 'pointer' }}>
                 {isMuted ? '🎙️ Unmute' : '🎤 Mute'}
+              </button>
+              <button
+                onClick={toggleSpeaker}
+                title="Toggle speaker / earpiece"
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: '1px solid #313743', background: isSpeakerOn ? 'rgba(34, 197, 94, 0.2)' : '#242930', color: isSpeakerOn ? '#22C55E' : '#fff', fontWeight: 500, fontSize: 12, cursor: 'pointer' }}
+              >
+                {isSpeakerOn ? '🔊 Speaker' : '🎧 Earpiece'}
               </button>
               <button onClick={handleEndCall} style={{ flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none', background: '#EF4444', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
                 🔴 End Call

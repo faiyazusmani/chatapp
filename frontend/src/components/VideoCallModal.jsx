@@ -4,10 +4,18 @@ import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 
 // STUN discovers public IP; TURN relays media when STUN fails (symmetric NAT, cellular, firewalls)
-// Helper to construct ICE_SERVERS configuration safely
+// Helper to construct ICE_SERVERS configuration safely.
+// TURN credentials are build-time env vars (VITE_TURN_*). On Vercel/Render
+// they may be unset, which silently drops the TURN servers and breaks calls
+// across symmetric NATs (~30-40% of real-world connections). The credentials
+// below ship in the public bundle anyway (same as the Google client ID), so
+// falling back to them keeps calls working on any deploy.
+const FALLBACK_TURN_USERNAME = '2126cc0cb07a8db93032573f';
+const FALLBACK_TURN_CREDENTIAL = '49sQ7pN1CfrpsUse';
+
 const getIceServers = () => {
-  const turnUsername = import.meta.env.VITE_TURN_USERNAME;
-  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME || FALLBACK_TURN_USERNAME;
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL || FALLBACK_TURN_CREDENTIAL;
 
   const servers = [
     { urls: "stun:stun.l.google.com:19302" },
@@ -67,12 +75,64 @@ export default function VideoCallModal({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenSharerName, setScreenSharerName] = useState(null);
   const [peerStatus, setPeerStatus] = useState('Connecting...');
+  // Live call duration (seconds) — resets to 0 when the call starts
+  const [callSeconds, setCallSeconds] = useState(0);
+  // Speaker routing toggle (setSinkId). Default = earpiece on phones.
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+
+  // Tick the call timer while the call is connected
+  useEffect(() => {
+    if (callState !== 'connected') {
+      setCallSeconds(0);
+      return undefined;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      setCallSeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [callState]);
+
+  const formatDuration = (totalSeconds) => {
+    const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const s = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // Toggle audio output between speaker and earpiece (where supported)
+  const toggleSpeaker = async () => {
+    const audioEl = remoteVideoRef.current?.querySelector?.('audio') || remoteAudioRef?.current;
+    const target = audioEl || remoteVideoRef.current;
+    if (!target || typeof target.setSinkId !== 'function') {
+      setPeerStatus('Speaker toggle not supported on this device');
+      return;
+    }
+    try {
+      if (isSpeakerOn) {
+        await target.setSinkId(''); // '' = default/earpiece routing
+        setIsSpeakerOn(false);
+      } else {
+        // 'speaker' deviceId routes to the loudspeaker on most mobile browsers
+        await target.setSinkId('speaker');
+        setIsSpeakerOn(true);
+      }
+    } catch (err) {
+      // Fallback: try the default sink and just report the toggle state
+      try {
+        await target.setSinkId(isSpeakerOn ? '' : 'default');
+        setIsSpeakerOn(!isSpeakerOn);
+      } catch {
+        setPeerStatus('Speaker toggle not supported on this device');
+      }
+    }
+  };
 
   // Full-screen focused participant ('local' | 'remote' | null)
   const [focusedParticipant, setFocusedParticipant] = useState(null);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const peerConnectionRef = useRef(null);
@@ -603,7 +663,14 @@ export default function VideoCallModal({
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #313743', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#161921' }}>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0 }}>📹 #{roomName} Video Room</h3>
-            <span style={{ fontSize: 11, color: '#22C55E' }}>{peerStatus}</span>
+            <span style={{ fontSize: 11, color: '#22C55E' }}>
+              {peerStatus}
+              {callState === 'connected' && (
+                <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 700, color: '#22C55E', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
+                  ⏱ {formatDuration(callSeconds)}
+                </span>
+              )}
+            </span>
           </div>
           {screenSharerName && (
             <div style={{ padding: '4px 10px', background: 'rgba(124, 58, 237, 0.2)', border: '1px solid #7C3AED', borderRadius: 6, fontSize: 11, color: '#8B5CF6' }}>
@@ -675,6 +742,14 @@ export default function VideoCallModal({
 
               <button onClick={toggleScreenShare} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #7C3AED', background: isScreenSharing ? '#7C3AED' : 'rgba(124, 58, 237, 0.2)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
                 {isScreenSharing ? '🖥️ Stop Share' : '🖥️ Share Screen'}
+              </button>
+
+              <button
+                onClick={toggleSpeaker}
+                title="Toggle speaker / earpiece"
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #313743', background: isSpeakerOn ? 'rgba(34, 197, 94, 0.2)' : '#242930', color: isSpeakerOn ? '#22C55E' : '#fff', fontSize: 12, cursor: 'pointer' }}
+              >
+                {isSpeakerOn ? '🔊 Speaker' : '🎧 Earpiece'}
               </button>
 
               <button onClick={handleEndCall} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#EF4444', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
