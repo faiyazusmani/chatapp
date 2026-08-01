@@ -131,7 +131,7 @@ describe('ChatWindow - Offline Queue', () => {
   it('queues messages when offline', async () => {
     const { getByPlaceholderText, getByText } = renderChatWindow();
     
-    const input = getByPlaceholderText('Send a message... (Enter to send, Shift+Enter for new line)');
+    const input = getByPlaceholderText('Send a message...');
     fireEvent.change(input, { target: { value: 'Hello offline' } });
     fireEvent.submit(input.closest('form'));
     
@@ -143,7 +143,7 @@ describe('ChatWindow - Offline Queue', () => {
     mockIsSocketConnected.mockReturnValue(true);
     
     const { getByPlaceholderText } = renderChatWindow();
-    const input = getByPlaceholderText('Send a message... (Enter to send, Shift+Enter for new line)');
+    const input = getByPlaceholderText('Send a message...');
     fireEvent.change(input, { target: { value: 'Hello online' } });
     fireEvent.submit(input.closest('form'));
     

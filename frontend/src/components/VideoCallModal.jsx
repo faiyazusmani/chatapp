@@ -101,8 +101,8 @@ export default function VideoCallModal({
 
   // Toggle audio output between speaker and earpiece (where supported)
   const toggleSpeaker = async () => {
-    const audioEl = remoteVideoRef.current?.querySelector?.('audio') || remoteAudioRef?.current;
-    const target = audioEl || remoteVideoRef.current;
+    // Audio is routed through the hidden <audio> element during calls
+    const target = remoteAudioRef.current || remoteVideoRef.current;
     if (!target || typeof target.setSinkId !== 'function') {
       setPeerStatus('Speaker toggle not supported on this device');
       return;
@@ -241,7 +241,7 @@ export default function VideoCallModal({
     };
 
     // ─────────────────────────────────────────────────────────────────
-    // EVENT: Remote Track Received + Remote Stream Attached + Video Playback
+    // EVENT: Remote Track Received + Remote Stream Attached + Video/Audio
     // ─────────────────────────────────────────────────────────────────
     pc.ontrack = (event) => {
       console.group('%c[Video] 📥 Remote Track Received', 'color:#22c55e;font-weight:bold');
@@ -252,7 +252,7 @@ export default function VideoCallModal({
       console.log('  stream count   :', event.streams.length);
       console.groupEnd();
 
-      if (remoteVideoRef.current && event.streams[0]) {
+      if (event.streams && event.streams[0]) {
         const remoteStream = event.streams[0];
 
         // EVENT: Remote Stream Attached
@@ -262,16 +262,33 @@ export default function VideoCallModal({
         console.log('  audio tracks   :', remoteStream.getAudioTracks().length);
         console.groupEnd();
 
-        remoteVideoRef.current.srcObject = remoteStream;
+        // Video → <video> element (picture)
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.play()
+            .then(() => {
+              console.log('%c[Video] 📹 Video Playback Started — remote video is live', 'color:#a855f7;font-weight:bold');
+            })
+            .catch(e => {
+              console.warn('%c[Video] ⚠️ Video Playback Blocked by autoplay policy:', 'color:#ef4444;font-weight:bold', e.message);
+            });
+        }
 
-        // EVENT: Video Playback Started
-        remoteVideoRef.current.play()
-          .then(() => {
-            console.log('%c[Video] 📹 Video Playback Started — remote video is live', 'color:#a855f7;font-weight:bold');
-          })
-          .catch(e => {
-            console.warn('%c[Video] ⚠️ Video Playback Blocked by autoplay policy:', 'color:#ef4444;font-weight:bold', e.message);
-          });
+        // Audio → dedicated hidden <audio> element (like VoiceCallModal).
+        // A <video> element's audio output is unreliable across devices and
+        // is often blocked by autoplay policy, so we route remote audio
+        // through an <audio> element instead — this is exactly why the
+        // voice call plays audio but the video call was silent.
+        if (remoteAudioRef.current && remoteStream.getAudioTracks().length > 0) {
+          remoteAudioRef.current.srcObject = remoteStream;
+          remoteAudioRef.current.play()
+            .then(() => {
+              console.log('%c[Video] 🔊 Remote Audio Playback Started', 'color:#a855f7;font-weight:bold');
+            })
+            .catch((err) => {
+              console.warn('%c[Video] ⚠️ Audio Playback Blocked by browser autoplay policy:', 'color:#ef4444;font-weight:bold', err.message);
+            });
+        }
       }
     };
 
@@ -552,6 +569,10 @@ export default function VideoCallModal({
       remoteVideoRef.current.srcObject = null;
     }
 
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+    }
+
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
@@ -729,13 +750,18 @@ export default function VideoCallModal({
               title="Click to toggle full-screen focus"
               style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#1D2129', aspectRatio: '16/9', cursor: 'pointer', border: '1px solid #313743' }}
             >
-              <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {/* muted: audio is routed through the hidden <audio> element
+                  below (more reliable than <video> element audio output) */}
+              <video ref={remoteVideoRef} autoPlay muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '2px 8px', background: 'rgba(0,0,0,0.6)', borderRadius: 4, fontSize: 11, color: '#fff' }}>
                 {incomingCaller?.username || 'Peer Participant'}
               </div>
             </div>
           )}
         </div>
+
+        {/* Hidden audio element — routes remote call audio (reliable playback) */}
+        <audio ref={remoteAudioRef} autoPlay style={{ display: 'none' }} />
 
         {/* Call Controls Toolbar */}
         <div style={{ padding: 16, borderTop: '1px solid #313743', display: 'flex', justifyContent: 'center', gap: 10, background: '#161921' }}>
