@@ -1347,7 +1347,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                 placeholder={
                   editingMessage ? 'Edit message... (Enter to save)' :
                   replyingTo ? `Replying to @${replyingTo.sender?.username}... (Enter to send)` :
-                  `Send a message... (Enter to send, Shift+Enter for new line)`
+                  `Send a message... `
                 }
                 rows={1}
                 maxLength={2000}
@@ -1375,8 +1375,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             {typingArray.length > 0 && `${typingArray.join(', ')} is typing...`}
           </div>
           <div className="composer-meta">
-            <span className="keyboard-shortcut-hint">Press <strong>Enter</strong> to send</span>
-            <span className="char-counter" id="char-counter">{inputText.length} / 2000</span>
+            {/* <span className="keyboard-shortcut-hint">Press <strong>Enter</strong> to send</span> */}
+            {/* <span className="char-counter" id="char-counter">{inputText.length} / 2000</span> */}
           </div>
         </div>
       </footer>
