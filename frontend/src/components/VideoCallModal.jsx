@@ -320,7 +320,17 @@ export default function VideoCallModal({
       }
 
       log('Call', 'Requesting camera + microphone via getUserMedia...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // 🔊 Echo fix: explicit audio constraints so the browser ALWAYS applies
+      // acoustic echo cancellation (AEC), noise suppression & auto gain.
+      // Without these the mic picks up the speaker → echo + repeated words.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       log('Call', 'Media granted. Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       localStreamRef.current = stream;
 
@@ -372,7 +382,15 @@ export default function VideoCallModal({
       }
 
       log('Accept', 'Accepting video call from socket:', targetSocketIdRef.current);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      // 🔊 Echo fix: same explicit AEC/NS/AGC constraints as the caller
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       log('Accept', 'Media granted. Tracks:', stream.getTracks().map(t => `${t.kind}:${t.label}`));
       localStreamRef.current = stream;
 

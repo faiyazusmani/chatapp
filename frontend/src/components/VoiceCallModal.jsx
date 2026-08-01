@@ -344,7 +344,16 @@ export default function VoiceCallModal({
       }
 
       log('getUserMedia', 'Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 🔊 Echo fix: explicit audio constraints so the browser ALWAYS applies
+      // acoustic echo cancellation (AEC), noise suppression & auto gain.
+      // Without these, the mic picks up the speaker → echo + repeated words.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       log('getUserMedia', 'Microphone granted. Tracks:', stream.getAudioTracks().map(t => t.label));
       localStreamRef.current = stream;
 
@@ -392,7 +401,14 @@ export default function VoiceCallModal({
       }
 
       log('getUserMedia', 'Requesting microphone (callee)...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 🔊 Echo fix: same explicit AEC/NS/AGC constraints as the caller
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       log('getUserMedia', 'Microphone granted:', stream.getAudioTracks().map(t => t.label));
       localStreamRef.current = stream;
 

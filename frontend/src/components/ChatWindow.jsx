@@ -53,6 +53,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   // Voice Calling State
   const [isVoiceCallOpen, setIsVoiceCallOpen] = useState(false);
   const [isVoiceIncoming, setIsVoiceIncoming] = useState(false);
+  const isVoiceCallOpenRef = useRef(false);
+  isVoiceCallOpenRef.current = isVoiceCallOpen;
   const [voiceCaller, setVoiceCaller] = useState(null);
   const [voiceOffer, setVoiceOffer] = useState(null);
   // FIX: Store caller's socket ID so ICE/answer routes directly to them (not room-broadcast)
@@ -61,6 +63,8 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   // Video Calling & Screen Sharing State
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [isVideoIncoming, setIsVideoIncoming] = useState(false);
+  const isVideoCallOpenRef = useRef(false);
+  isVideoCallOpenRef.current = isVideoCallOpen;
   const [videoCaller, setVideoCaller] = useState(null);
   const [videoOffer, setVideoOffer] = useState(null);
   const [videoCallerSocketId, setVideoCallerSocketId] = useState(null);
@@ -444,6 +448,13 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     // back to them instead of broadcasting to the whole room.
     const handleCallIncoming = ({ offer, caller, fromSocket }) => {
       if (import.meta.env.DEV) console.log('[Voice] Incoming call from socket:', fromSocket, 'user:', caller?.username);
+      // 🔊 Echo fix: if a video call is already active, auto-decline the
+      // incoming voice call — two live mics/speakers cause a feedback loop.
+      if (isVideoCallOpenRef.current) {
+        if (import.meta.env.DEV) console.log('[Voice] Declined — video call already active');
+        socket.emit('end_call', { toRoom: roomId });
+        return;
+      }
       setVoiceOffer(offer);
       setVoiceCaller(caller);
       setVoiceCallerSocketId(fromSocket || null);  // <-- KEY FIX
@@ -456,6 +467,13 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     // FIX: Same fix for video — extract fromSocket for targeted signaling.
     const handleVideoCallIncoming = ({ offer, caller, fromSocket }) => {
       if (import.meta.env.DEV) console.log('[Video] Incoming call from socket:', fromSocket, 'user:', caller?.username);
+      // 🔊 Echo fix: if a voice call is already active, auto-decline the
+      // incoming video call — two live mics/speakers cause a feedback loop.
+      if (isVoiceCallOpenRef.current) {
+        if (import.meta.env.DEV) console.log('[Video] Declined — voice call already active');
+        socket.emit('end_video_call', { toRoom: roomId });
+        return;
+      }
       setVideoOffer(offer);
       setVideoCaller(caller);
       setVideoCallerSocketId(fromSocket || null);  // <-- KEY FIX
@@ -688,6 +706,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   };
 
   const handleStartVoiceCall = () => {
+    // 🔊 Echo fix: never run voice + video simultaneously — two live mics
+    // and two speakers create a feedback loop (echo + repeated words).
+    setIsVideoCallOpen(false);
+    setIsVideoIncoming(false);
+    setVideoCaller(null);
+    setVideoOffer(null);
     setIsVoiceIncoming(false);
     setVoiceCaller(null);
     setVoiceOffer(null);
@@ -695,6 +719,11 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
   };
 
   const handleStartVideoCall = () => {
+    // 🔊 Echo fix: never run voice + video simultaneously
+    setIsVoiceCallOpen(false);
+    setIsVoiceIncoming(false);
+    setVoiceCaller(null);
+    setVoiceOffer(null);
     setIsVideoIncoming(false);
     setVideoCaller(null);
     setVideoOffer(null);
