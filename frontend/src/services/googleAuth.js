@@ -38,11 +38,7 @@ async function exchangeTokenWithBackend(result) {
  * Check if the current device is a mobile or touch device where popups are typically blocked.
  */
 export function isMobileOrPopupRestricted() {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const isMobileUA = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  const isTouchDevice = 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 1 && !/Windows NT/i.test(ua);
-  return isMobileUA || isTouchDevice;
+  return false;
 }
 
 /**
@@ -54,9 +50,8 @@ export function isMobileOrPopupRestricted() {
  * @returns {Promise<{success: boolean, token?: string, user?: object, message?: string, pendingRedirect?: boolean}>}
  */
 export async function signInWithFirebaseGoogle(forceRedirect = false) {
-  // Mobile browsers (iOS Safari, mobile Chrome) block window.open popups by default.
-  // Using signInWithRedirect provides a smooth, native sign-in flow for any email.
-  if (forceRedirect || isMobileOrPopupRestricted()) {
+  // Only use redirect if explicitly forced (e.g. by fallback button)
+  if (forceRedirect) {
     try {
       await signInWithRedirect(auth, googleProvider);
       return { success: true, pendingRedirect: true };
@@ -69,7 +64,9 @@ export async function signInWithFirebaseGoogle(forceRedirect = false) {
     }
   }
 
-  // Desktop environment: try popup first
+  // Primary: Always attempt signInWithPopup first.
+  // signInWithPopup works smoothly on both desktop and mobile/phone screens in direct user click events,
+  // and completely avoids third-party cookie partitioning issues that affect signInWithRedirect on custom domains.
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return await exchangeTokenWithBackend(result);
