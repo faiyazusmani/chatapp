@@ -39,7 +39,8 @@ function ParticipantTile({
 
     const updateRatio = () => {
       if (el.videoWidth && el.videoHeight) {
-        setVideoAspectRatio(el.videoWidth / el.videoHeight);
+        const ratio = el.videoWidth / el.videoHeight;
+        setVideoAspectRatio((prev) => (prev && Math.abs(prev - ratio) < 0.01 ? prev : ratio));
       }
     };
 
@@ -101,7 +102,9 @@ function ParticipantTile({
           el.play().catch(() => {});
           if (bgEl) bgEl.play().catch(() => {});
           setVideoAttached(true);
-        } catch {}
+        } catch {
+          /* noop */
+        }
       }
     }
 
@@ -173,12 +176,12 @@ function ParticipantTile({
       style={{
         position: 'relative',
         width: '100%',
-        maxWidth: videoAspectRatio ? (videoAspectRatio < 0.95 ? `min(100%, calc(100vh * ${videoAspectRatio}))` : '100%') : '100%',
-        aspectRatio: videoAspectRatio ? `${videoAspectRatio}` : (effectiveFit === 'contain' ? 'auto' : '16/9'),
+        maxWidth: '100%',
         height: '100%',
         maxHeight: '100%',
         minHeight: 0,
         minWidth: 0,
+        boxSizing: 'border-box',
         background: '#0d0f15',
         borderRadius: 14,
         overflow: 'hidden',
@@ -285,7 +288,9 @@ function ParticipantTile({
                   inset: 0,
                   borderRadius: '50%',
                   border: '2px solid #22c55e',
-                  animation: 'pulse 1.5s infinite',
+                  animation: 'pulse 1.5s infinite ease-in-out',
+                  willChange: 'transform, opacity',
+                  pointerEvents: 'none',
                 }}
               />
             )}

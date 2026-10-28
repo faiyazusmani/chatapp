@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import api from '../../services/api';
 import { useAuth } from '../../context/useAuth';
 import ImageCropperModal from './ImageCropperModal';
+import CreateStatusModal from '../status/CreateStatusModal';
+import StatusViewerModal from '../status/StatusViewerModal';
+import { socket } from '../../services/socket';
 import { animateModalEnter } from '../../utils/animations';
 
 export default function UserProfileModal({ targetUserId, onClose }) {
@@ -19,6 +22,11 @@ export default function UserProfileModal({ targetUserId, onClose }) {
   const [cropTarget, setCropTarget] = useState(null); // 'avatar' or 'bannerImage'
   const [imageToCrop, setImageToCrop] = useState(null);
   const [cropAspect, setCropAspect] = useState(1);
+
+  // WhatsApp Status States
+  const [userStatuses, setUserStatuses] = useState([]);
+  const [isViewingStatus, setIsViewingStatus] = useState(false);
+  const [isCreatingStatus, setIsCreatingStatus] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -44,6 +52,47 @@ export default function UserProfileModal({ targetUserId, onClose }) {
     };
     if (targetUserId) fetchProfile();
   }, [targetUserId, isMe, currentUser]);
+
+  // Fetch active WhatsApp status stories for this user
+  const fetchUserStatuses = useCallback(async () => {
+    if (!targetUserId) return;
+    try {
+      const res = await api.get(`/status/user/${targetUserId}`);
+      setUserStatuses(res.data?.statuses || []);
+    } catch (err) {
+      setUserStatuses([]);
+      console.warn('Failed to fetch user WhatsApp statuses', err);
+    }
+  }, [targetUserId]);
+
+  useEffect(() => {
+    fetchUserStatuses();
+  }, [fetchUserStatuses]);
+
+  // Real-time socket updates for WhatsApp status
+  useEffect(() => {
+    const onStatusCreated = (status) => {
+      const statusUserId = status.user?._id || status.user?.id || status.user;
+      if (String(statusUserId) === String(targetUserId)) {
+        fetchUserStatuses();
+      }
+    };
+
+    const onStatusDeleted = ({ statusId, userId }) => {
+      if (String(userId) === String(targetUserId)) {
+        setUserStatuses((prev) => prev.filter((s) => s._id !== statusId));
+      }
+    };
+
+    socket.on('status_created', onStatusCreated);
+    socket.on('status_deleted', onStatusDeleted);
+    return () => {
+      socket.off('status_created', onStatusCreated);
+      socket.off('status_deleted', onStatusDeleted);
+    };
+  }, [targetUserId, fetchUserStatuses]);
+
+  const hasStatuses = userStatuses.length > 0;
 
   // Lock body scroll and listen for Escape key
   useEffect(() => {
@@ -217,7 +266,19 @@ export default function UserProfileModal({ targetUserId, onClose }) {
 
           {/* Header Row: Avatar + Action Buttons */}
           <div className="profile-header-row">
-            <div className="profile-avatar-wrapper">
+            <div 
+              className={`profile-avatar-wrapper ${hasStatuses ? 'has-whatsapp-status' : ''}`}
+              onClick={() => {
+                if (hasStatuses && !isEditing) {
+                  setIsViewingStatus(true);
+                }
+              }}
+              style={{
+                cursor: hasStatuses && !isEditing ? 'pointer' : 'default',
+                position: 'relative'
+              }}
+              title={hasStatuses ? 'Click avatar to view WhatsApp Status' : ''}
+            >
               <div className="profile-avatar-inner">
                 {avatarSrc ? (
                   <img src={avatarSrc} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -225,6 +286,18 @@ export default function UserProfileModal({ targetUserId, onClose }) {
                   getInitials(displayName)
                 )}
               </div>
+              {hasStatuses && !isEditing && (
+                <div 
+                  className="profile-avatar-status-badge"
+                  title="Click to view WhatsApp Status"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsViewingStatus(true);
+                  }}
+                >
+                  🟢
+                </div>
+              )}
               {isEditing && isMe && (
                 <div 
                   onClick={() => handleImageSelect('avatar')} 
@@ -238,38 +311,66 @@ export default function UserProfileModal({ targetUserId, onClose }) {
               )}
             </div>
 
-            {/* Header Action Buttons (Edit / Save / Cancel) */}
-            {isMe && (
-              <div className="profile-header-actions">
-                {isEditing ? (
-                  <>
+            {/* Header Action Buttons (Edit / Save / Cancel & View Story) */}
+            <div className="profile-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {!isEditing && hasStatuses && (
+                <button
+                  type="button"
+                  onClick={() => setIsViewingStatus(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 14px',
+                    borderRadius: 20,
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="View Photo/Video Status Story"
+                >
+                  <span>🟢</span>
+                  <span>View Story ({userStatuses.length})</span>
+                </button>
+              )}
+
+              {isMe && (
+                <>
+                  {isEditing ? (
+                    <>
+                      <button 
+                        type="button"
+                        onClick={() => { setIsEditing(false); setEditForm(profileData); }} 
+                        className="btn-profile-secondary"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleSaveProfile} 
+                        disabled={saving} 
+                        className="btn-profile-primary"
+                      >
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                    </>
+                  ) : (
                     <button 
                       type="button"
-                      onClick={() => { setIsEditing(false); setEditForm(profileData); }} 
+                      onClick={() => setIsEditing(true)} 
                       className="btn-profile-secondary"
                     >
-                      Cancel
+                      Edit Profile
                     </button>
-                    <button 
-                      type="button"
-                      onClick={handleSaveProfile} 
-                      disabled={saving} 
-                      className="btn-profile-primary"
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    type="button"
-                    onClick={() => setIsEditing(true)} 
-                    className="btn-profile-secondary"
-                  >
-                    Edit Profile
-                  </button>
-                )}
-              </div>
-            )}
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Profile Body / Form */}
@@ -297,6 +398,27 @@ export default function UserProfileModal({ targetUserId, onClose }) {
                       onChange={handleEditChange} 
                       className="profile-field-input" 
                       autoComplete="name"
+                    />
+                  </div>
+                </div>
+
+                <div className="profile-field-group">
+                  <label className="profile-field-label">Custom Status</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Emoji"
+                      value={editForm.customStatus?.emoji || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, customStatus: { ...(prev.customStatus || {}), emoji: e.target.value } }))}
+                      style={{ width: 64, textAlign: 'center', fontSize: 16 }}
+                      className="profile-field-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="What's on your mind? (e.g. Ready to chat!)"
+                      value={editForm.customStatus?.text || ''}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, customStatus: { ...(prev.customStatus || {}), text: e.target.value } }))}
+                      className="profile-field-input"
                     />
                   </div>
                 </div>
@@ -335,8 +457,98 @@ export default function UserProfileModal({ targetUserId, onClose }) {
               </div>
             ) : (
               <div>
-                <h2 className="profile-identity-title">{displayName}</h2>
-                <div className="profile-identity-handle">@{profileData.username}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <h2 className="profile-identity-title" style={{ margin: 0 }}>{displayName}</h2>
+                  {(profileData.role === 'superadmin' || (profileData.email || '').toLowerCase() === 'faiyazusmani068@gmail.com') && (
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 12, background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', letterSpacing: 0.3, boxShadow: '0 0 10px rgba(245, 158, 11, 0.4)' }}>
+                      👑 Super Admin
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  <div className="profile-identity-handle">@{profileData.username}</div>
+                  <span style={{ color: '#475569', fontSize: 11 }}>•</span>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: 4 }}>
+                    ID: {profileData._id || targetUserId}
+                  </div>
+                </div>
+
+                {/* WhatsApp Status Story Display */}
+                {hasStatuses ? (
+                  <div 
+                    className="whatsapp-status-profile-banner"
+                    onClick={() => setIsViewingStatus(true)}
+                    title="Click to view WhatsApp status story"
+                  >
+                    <div className="whatsapp-status-banner-left">
+                      <div className="whatsapp-status-live-icon">
+                        🟢
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="whatsapp-status-banner-title">
+                          <span>WhatsApp Status Story</span>
+                          <span className="whatsapp-status-count-badge">
+                            {userStatuses.length} {userStatuses.length === 1 ? 'update' : 'updates'}
+                          </span>
+                        </div>
+                        <div className="whatsapp-status-banner-subtitle">
+                          {userStatuses[userStatuses.length - 1]?.type === 'video'
+                            ? '🎥 Video Story'
+                            : '📷 Photo Story'}{' '}
+                          • Active for 24h • Tap to view
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button 
+                        type="button" 
+                        className="whatsapp-status-view-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsViewingStatus(true);
+                        }}
+                      >
+                        View Status ▶
+                      </button>
+                      {isMe && (
+                        <button
+                          type="button"
+                          className="btn-post-status-profile"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsCreatingStatus(true);
+                          }}
+                          title="Add another photo/video story"
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : isMe ? (
+                  <div style={{ 
+                    margin: '12px 0', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    padding: '10px 14px', 
+                    borderRadius: 12, 
+                    background: 'rgba(255,255,255,0.03)', 
+                    border: '1px dashed rgba(255,255,255,0.15)' 
+                  }}>
+                    <div style={{ fontSize: 13, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>📸</span>
+                      <span>No active photo or video status</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-post-status-profile"
+                      onClick={() => setIsCreatingStatus(true)}
+                    >
+                      + Post Photo / Video Status
+                    </button>
+                  </div>
+                ) : null}
                 
                 {profileData.customStatus?.text && (
                   <div className="profile-status-pill">
@@ -376,6 +588,37 @@ export default function UserProfileModal({ targetUserId, onClose }) {
           aspect={cropAspect} 
           onCancel={() => setImageToCrop(null)}
           onCropComplete={handleCropComplete} 
+        />
+      )}
+
+      {/* WhatsApp Status Viewer Modal */}
+      {isViewingStatus && hasStatuses && (
+        <StatusViewerModal
+          isOpen={isViewingStatus}
+          onClose={() => setIsViewingStatus(false)}
+          statusGroup={{
+            user: profileData,
+            statuses: userStatuses,
+            isMe
+          }}
+          onDeleteStatus={(statusId) => {
+            setUserStatuses((prev) => prev.filter((s) => s._id !== statusId));
+            if (userStatuses.length <= 1) {
+              setIsViewingStatus(false);
+            }
+          }}
+        />
+      )}
+
+      {/* WhatsApp Status Creator Modal */}
+      {isCreatingStatus && (
+        <CreateStatusModal
+          isOpen={isCreatingStatus}
+          onClose={() => setIsCreatingStatus(false)}
+          onStatusCreated={() => {
+            setIsCreatingStatus(false);
+            fetchUserStatuses();
+          }}
         />
       )}
     </div>

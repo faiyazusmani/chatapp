@@ -24,7 +24,10 @@ const getFileType = (mimetype, originalname) => {
   if (mimetype.startsWith('image/') || /jpeg|jpg|png|gif|webp/.test(ext)) {
     return 'image';
   }
-  if (mimetype.startsWith('audio/') || mimetype.startsWith('video/webm') || /webm|mp3|wav|m4a|ogg|mp4/.test(ext)) {
+  if (mimetype.startsWith('video/') || /mp4|webm|mov|m4v|mkv/.test(ext)) {
+    return 'video';
+  }
+  if (mimetype.startsWith('audio/') || /mp3|wav|m4a|ogg/.test(ext)) {
     return 'audio';
   }
   if (mimetype === 'application/pdf' || ext === '.pdf') {

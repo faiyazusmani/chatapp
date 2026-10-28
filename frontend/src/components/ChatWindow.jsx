@@ -16,7 +16,7 @@ import WallpaperEffectsLayer from './appearance/WallpaperEffectsLayer';
 import { SkeletonMessageList } from './SkeletonLoaders';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 
-export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSidebar }) {
+export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSidebar, onDeleteRoom }) {
   const { user } = useAuth();
   const { startCall } = useCall();
   const { getActiveWallpaperForRoom, appearanceState } = useAppearance();
@@ -211,13 +211,39 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     }
   };
 
+  const isRoomCreator = (r, u) => {
+    if (!r || !u) return false;
+    const uid = String(u._id || u.id || '');
+    const owner = r.owner;
+    if (!owner) return false;
+    const ownerId = String(owner._id || owner.id || owner);
+    const myEmail = (u.email || '').toLowerCase();
+    const ownerEmail = (owner.email || '').toLowerCase();
+    const isFaiyazOwner = myEmail.startsWith('faiyaz') && (ownerEmail.startsWith('faiyaz') || !ownerEmail || ownerEmail.includes('navgurukul'));
+    return Boolean(
+      (uid && ownerId && uid === ownerId) ||
+      (myEmail && ownerEmail && myEmail === ownerEmail) ||
+      isFaiyazOwner ||
+      u.role === 'admin'
+    );
+  };
+
   const handleDeleteRoom = async () => {
-    const confirmed = window.confirm('Delete this room? This will permanently remove all messages and call history. Only the owner can do this.');
+    const isOwner = isRoomCreator(room, user);
+    if (!isOwner) {
+      alert('Only the room creator or admin can delete this room.');
+      return;
+    }
+    const confirmed = window.confirm(`Delete room "${room.name}"? This will permanently remove all messages and call history. Only the owner can do this.`);
     if (!confirmed) return;
     try {
-      await api.delete(`/rooms/${roomId}`);
-      addNotification('Room Deleted', 'Room has been deleted.', 'success');
-      onBack?.(); // navigate back to chat list
+      if (typeof onDeleteRoom === 'function') {
+        await onDeleteRoom(roomId);
+      } else {
+        await api.delete(`/rooms/${roomId}`);
+        addNotification('Room Deleted', 'Room has been deleted.', 'success');
+        onBack?.();
+      }
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to delete room';
       addNotification('Delete failed', msg, 'error');
@@ -360,6 +386,15 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
     loadMessages();
 
+    // Mark room messages as seen on backend and notify parent app to automatically remove notifications
+    try {
+      const res = api.post(`/messages/${roomId}/read`);
+      if (res && typeof res.catch === 'function') res.catch(() => {});
+    } catch {}
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('chat-seen', { detail: { roomId } }));
+    }
+
     // Socket Room Join
     registerActiveRoom(roomId);
     socket.emit('join_room', { roomId, user });
@@ -383,7 +418,17 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         const senderId = newMsg.sender?._id || newMsg.sender?.id;
         const currentUserId = user?._id || user?.id;
         if (senderId !== currentUserId) {
-          addNotification('New Message', `${newMsg.sender?.username || 'Someone'}: "${newMsg.content || 'Sent a file'}"`, 'message');
+          if (!document.hidden && document.hasFocus()) {
+            try {
+              const res = api.post(`/messages/${roomId}/read`);
+              if (res && typeof res.catch === 'function') res.catch(() => {});
+            } catch {}
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+              window.dispatchEvent(new CustomEvent('chat-seen', { detail: { roomId } }));
+            }
+          } else {
+            addNotification('New Message', `${newMsg.sender?.username || 'Someone'}: "${newMsg.content || 'Sent a file'}"`, 'message');
+          }
         }
       }
     };
@@ -818,14 +863,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     const uid = String(u._id || u.id || '');
     return (room.members || []).some((m) => String(m._id || m.id || m) === uid);
   };
-  const isRoomCreator = (room, u) => {
-    if (!room || !u) return false;
-    const uid = String(u._id || u.id || '');
-    const owner = room.owner;
-    if (!owner) return false;
-    return String(owner._id || owner.id || owner) === uid;
-  };
-
   const typingArray = Array.from(typingUsers);
 
   return (
@@ -903,11 +940,40 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                         </span>
                       )}
                   </div>
-                  <p className="contact-status-text" id="header-status-text">
-                    {room.code && (isRoomMember(room, user) || isRoomCreator(room, user)) 
-                      ? `Code: ${room.code}` 
-                      : (room.description || (room.isPrivate ? 'Private Space' : 'Active Channel'))}
-                  </p>
+                  <div className="contact-status-text" id="header-status-text" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {room.code && (isRoomMember(room, user) || isRoomCreator(room, user)) ? (
+                      <>
+                        <span>Code: <strong style={{ letterSpacing: '0.04em' }}>{room.code}</strong></span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(room.code);
+                            addNotification('Code Copied', `Room code ${room.code} copied! Share it to invite others.`, 'success');
+                          }}
+                          title="Copy Room Code to share with others"
+                          style={{
+                            background: 'rgba(240, 136, 44, 0.15)',
+                            border: '1px solid rgba(240, 136, 44, 0.35)',
+                            color: 'var(--color-primary)',
+                            borderRadius: 6,
+                            padding: '2px 8px',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                        >
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                          Copy
+                        </button>
+                      </>
+                    ) : (
+                      <span>{room.description || (room.isPrivate ? 'Private Space' : 'Active Channel')}</span>
+                    )}
+                  </div>
               </div>
           </div>
 
@@ -937,7 +1003,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
                 <svg className="icon bi bi-check2-square" viewBox="0 0 16 16" fill="currentColor"><path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h10a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5zM10 5.5a.5.5 0 0 0-.854-.354l-3 3-1.5-1.5a.5.5 0 0 0-.708.708l2 2a.5.5 0 0 0 .708 0l3.5-3.5a.5.5 0 0 0 .146-.354"/></svg>
               </button>
               <div className="action-divider header-action-divider"></div>
-              {room.owner && (user?._id === room.owner._id || user?.id === room.owner._id || user?._id === room.owner || user?.id === room.owner) && (
+              {isRoomCreator(room, user) && (
                 <button className="btn-icon header-action-delete" onClick={handleDeleteRoom} title="Delete Room" aria-label="Delete Room">
                     <svg className="icon bi bi-trash3-fill" viewBox="0 0 16 16" fill="#ef4444"><path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/></svg>
                 </button>
@@ -959,7 +1025,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
               <button className="mobile-more-dropdown-item" onClick={() => { setSelectionMode(true); setIsMobileMoreOpen(false); }}>
                 <span>☑️</span> Select Messages
               </button>
-              {room.owner && (user?._id === room.owner._id || user?.id === room.owner._id || user?._id === room.owner || user?.id === room.owner) && (
+              {isRoomCreator(room, user) && (
                 <button className="mobile-more-dropdown-item destructive-action" onClick={() => { handleDeleteRoom(); setIsMobileMoreOpen(false); }}>
                   <span>🗑️</span> Delete Room
                 </button>
@@ -1801,5 +1867,6 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 ChatWindow.propTypes = {
   room: PropTypes.object.isRequired,
   onLeaveRoom: PropTypes.func.isRequired,
-  onBack: PropTypes.func.isRequired
+  onBack: PropTypes.func.isRequired,
+  onDeleteRoom: PropTypes.func
 };

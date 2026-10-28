@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { socket } from '../services/socket';
 import { useAuth } from './useAuth';
@@ -114,6 +114,12 @@ export function CallProvider({ children }) {
   const [localTracks, setLocalTracks] = useState({ audioTrack: null, videoTrack: null });
   const [remoteParticipants, setRemoteParticipants] = useState(new Map());
   const [activeSpeakerId, setActiveSpeakerId] = useState(null);
+
+  // Memoize array conversion so consumer hooks don't invalidate on every render
+  const remoteParticipantsArray = useMemo(
+    () => Array.from(remoteParticipants.values()),
+    [remoteParticipants]
+  );
 
   // UI modal view state
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
@@ -1203,7 +1209,7 @@ export function CallProvider({ children }) {
     hasMultipleCameras,
     currentFacingMode,
     localTracks,
-    remoteParticipants: Array.from(remoteParticipants.values()),
+    remoteParticipants: remoteParticipantsArray,
     activeSpeakerId,
     isCallModalOpen,
     isCallMinimized,

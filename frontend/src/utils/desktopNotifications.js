@@ -31,6 +31,20 @@ export const showDesktopNotification = (title, body, roomId, icon) => {
   if (!document.hidden && document.hasFocus()) return;
 
   try {
+    // If ServiceWorker has an active registration with showNotification (standard for Mobile Chrome/Android)
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          reg.showNotification(title, {
+            body,
+            icon: icon || '/favicon.ico',
+            tag: roomId ? `chat-${roomId}` : undefined,
+            data: { roomId }
+          });
+        }
+      }).catch(() => {});
+    }
+
     const n = new Notification(title, {
       body,
       icon: icon || undefined,

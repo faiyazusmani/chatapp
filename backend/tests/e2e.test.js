@@ -161,6 +161,84 @@ test('rooms: list requires auth and returns the created room', async () => {
   assert.ok(rooms.some((r) => (r._id || r.id) === roomId), 'created room not in list');
 });
 
+test('private rooms: visible to everyone, but code hidden and requires code to join', async () => {
+  // 1. User A creates a private room
+  const createRes = await jsonFetch('/api/rooms', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `Private Lounge ${Date.now()}`,
+      category: 'Tech',
+      description: 'Exclusive developer discussions',
+      isPrivate: true,
+    }),
+  }, tokenA);
+  assert.equal(createRes.status, 201);
+  const privRoom = await createRes.json();
+  const privRoomId = privRoom._id || privRoom.id;
+  const privCode = privRoom.code;
+  assert.ok(privCode, 'Creator receives the room code');
+
+  // 2. User B lists all rooms — private room MUST be visible
+  const listRes = await jsonFetch('/api/rooms', {}, tokenB);
+  assert.equal(listRes.status, 200);
+  const listData = await listRes.json();
+  const allRooms = Array.isArray(listData) ? listData : listData.rooms || [];
+  const foundForB = allRooms.find((r) => (r._id || r.id) === privRoomId);
+  assert.ok(foundForB, 'Private room must remain visible to User B');
+  assert.equal(foundForB.isPrivate, true, 'isPrivate flag must be true');
+  assert.equal(foundForB.code, undefined, 'Room code must NOT be leaked to non-member User B');
+  assert.equal(foundForB.isMember, false, 'User B is not yet a member');
+
+  // 3. User B cannot view messages without joining
+  const msgRes = await jsonFetch(`/api/messages/${privRoomId}`, {}, tokenB);
+  assert.equal(msgRes.status, 403, 'Non-member User B cannot fetch messages of private room');
+
+  // 4. User B cannot join with wrong code
+  const wrongJoin = await jsonFetch('/api/rooms/join', {
+    method: 'POST',
+    body: JSON.stringify({ code: 'ROOM-FAIL', roomId: privRoomId }),
+  }, tokenB);
+  assert.ok(wrongJoin.status === 400 || wrongJoin.status === 404, 'Wrong code is rejected');
+
+  // 5. User B joins with correct code shared by User A
+  const joinRes = await jsonFetch('/api/rooms/join', {
+    method: 'POST',
+    body: JSON.stringify({ code: privCode, roomId: privRoomId }),
+  }, tokenB);
+  assert.equal(joinRes.status, 200, 'User B joins successfully with correct code');
+  const joinedData = await joinRes.json();
+  assert.equal(joinedData.isMember, true, 'Response confirms isMember: true');
+
+  // 6. User B can now view messages
+  const msgAfterJoin = await jsonFetch(`/api/messages/${privRoomId}`, {}, tokenB);
+  assert.equal(msgAfterJoin.status, 200, 'User B can now access messages after joining with code');
+});
+
+test('rooms: owner can delete room and non-owner is rejected', async () => {
+  // 1. User A creates a room to delete
+  const createRes = await jsonFetch('/api/rooms', {
+    method: 'POST',
+    body: JSON.stringify({ name: `Disposable Room ${Date.now()}` }),
+  }, tokenA);
+  assert.equal(createRes.status, 201);
+  const roomToDelete = await createRes.json();
+  const delId = roomToDelete._id || roomToDelete.id;
+
+  // 2. Non-owner (User B) tries to delete → 403 Forbidden
+  const failDel = await jsonFetch(`/api/rooms/${delId}`, { method: 'DELETE' }, tokenB);
+  assert.equal(failDel.status, 403, 'Non-owner cannot delete room');
+
+  // 3. Owner (User A) deletes the room → 200 OK
+  const okDel = await jsonFetch(`/api/rooms/${delId}`, { method: 'DELETE' }, tokenA);
+  assert.equal(okDel.status, 200, 'Owner can delete room');
+
+  // 4. Verify room no longer appears in room list
+  const listRes = await jsonFetch('/api/rooms', {}, tokenA);
+  const listData = await listRes.json();
+  const rooms = Array.isArray(listData) ? listData : listData.rooms || [];
+  assert.ok(!rooms.some((r) => (r._id || r.id) === delId), 'Deleted room must not appear in list');
+});
+
 test('upload: spoofed file (.exe bytes as .png) is rejected with 400', async () => {
   const fakePng = new Uint8Array([0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00]); // MZ header
   const form = new FormData();

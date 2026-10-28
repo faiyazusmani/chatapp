@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon --ext js,json,env server.js",
     "lint": "eslint .",
     "test": "node --test --test-timeout=30000"
   },

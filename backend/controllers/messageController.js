@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Message = require('../models/Message');
+const Room = require('../models/Room');
 
 // In-memory fallback message store
 const memoryMessages = new Map();
@@ -47,6 +48,30 @@ const getRoomMessages = async (req, res, next) => {
     const { roomId } = req.params;
     if (!isValidObjectId(roomId) && !roomId.startsWith('mem_room_')) {
       return res.status(400).json({ message: 'Invalid room id' });
+    }
+
+    const userId = req.user?._id ? req.user._id.toString() : req.user?.id?.toString();
+
+    // Check private room access
+    if (isDBConnected() && isValidObjectId(roomId) && !roomId.startsWith('mem_room_')) {
+      const room = await Room.findById(roomId).select('isPrivate members owner').lean();
+      if (room && room.isPrivate) {
+        const memberIds = (room.members || []).map((m) => m.toString());
+        const isOwner = room.owner && room.owner.toString() === userId;
+        if (!memberIds.includes(userId) && !isOwner) {
+          return res.status(403).json({ message: 'Access denied: You must enter the room code to join this private room.' });
+        }
+      }
+    } else {
+      const { memoryRooms } = require('./roomController');
+      const memRoom = memoryRooms?.get(roomId);
+      if (memRoom && memRoom.isPrivate) {
+        const memberIds = (memRoom.members || []).map((m) => m.toString());
+        const isOwner = memRoom.owner === userId;
+        if (!memberIds.includes(userId) && !isOwner) {
+          return res.status(403).json({ message: 'Access denied: You must enter the room code to join this private room.' });
+        }
+      }
     }
 
     // Clamp pagination values (performance + abuse protection)

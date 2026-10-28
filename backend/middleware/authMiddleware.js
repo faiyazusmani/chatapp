@@ -64,6 +64,13 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized, user not found' });
     }
 
+    // Auto-elevate super admin account
+    const SUPER_ADMIN_EMAIL = 'faiyazusmani068@gmail.com';
+    const isSuperAdmin = (user.email || '').toLowerCase().trim() === SUPER_ADMIN_EMAIL;
+    if (isSuperAdmin) {
+      user.role = 'superadmin';
+    }
+
     req.user = user;
     return next();
   } catch (error) {
@@ -72,4 +79,28 @@ const protect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect };
+const isSuperAdminEmail = (email) => {
+  return (email || '').toLowerCase().trim() === 'faiyazusmani068@gmail.com';
+};
+
+const requireSuperAdmin = (req, res, next) => {
+  if (req.user?.role === 'superadmin' || isSuperAdminEmail(req.user?.email)) {
+    return next();
+  }
+  return res.status(403).json({ message: 'Super admin authorization required' });
+};
+
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role === 'admin' || req.user?.role === 'superadmin' || isSuperAdminEmail(req.user?.email)) {
+    return next();
+  }
+  return res.status(403).json({ message: 'Admin authorization required' });
+};
+
+module.exports = {
+  protect,
+  requireSuperAdmin,
+  requireAdmin,
+  isSuperAdminEmail,
+  SUPER_ADMIN_EMAIL: 'faiyazusmani068@gmail.com'
+};

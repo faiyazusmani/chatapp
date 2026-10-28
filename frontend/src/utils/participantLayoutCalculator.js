@@ -145,6 +145,7 @@ export function calculateParticipantLayout({ count, width, height }) {
           gap: isCompactPhone ? 6 : 8,
           width: '100%',
           height: '100%',
+          boxSizing: 'border-box',
         },
         tileStyle: (index) => {
           if (index === 0) {
@@ -177,6 +178,7 @@ export function calculateParticipantLayout({ count, width, height }) {
         gap: isLandscapeMobile ? 6 : 12,
         width: '100%',
         height: '100%',
+        boxSizing: 'border-box',
       },
       tileStyle: (index) => {
         if (index === 2) {
@@ -211,6 +213,7 @@ export function calculateParticipantLayout({ count, width, height }) {
         gap: isCompactPhone ? 4 : isMobile || isLandscapeMobile ? 6 : 12,
         width: '100%',
         height: '100%',
+        boxSizing: 'border-box',
       },
       tileStyle: () => ({ width: '100%', height: '100%' }),
     };
@@ -237,6 +240,7 @@ export function calculateParticipantLayout({ count, width, height }) {
           gap: isCompactPhone ? 4 : 6,
           width: '100%',
           height: '100%',
+          boxSizing: 'border-box',
         },
         tileStyle: (index) => {
           if (visibleCount === 5 && index === 4) {
@@ -270,6 +274,7 @@ export function calculateParticipantLayout({ count, width, height }) {
         gap: isLandscapeMobile ? 6 : 10,
         width: '100%',
         height: '100%',
+        boxSizing: 'border-box',
       },
       tileStyle: (index) => {
         if (visibleCount === 5 && index === 3) {
@@ -315,6 +320,7 @@ export function calculateParticipantLayout({ count, width, height }) {
           gap: 6,
           width: '100%',
           height: '100%',
+          boxSizing: 'border-box',
         },
         tileStyle: () => ({ width: '100%', height: '100%' }),
       };
@@ -338,6 +344,7 @@ export function calculateParticipantLayout({ count, width, height }) {
         gap: isLandscapeMobile ? 4 : 8,
         width: '100%',
         height: '100%',
+        boxSizing: 'border-box',
       },
       tileStyle: () => ({ width: '100%', height: '100%' }),
     };
@@ -364,6 +371,7 @@ export function calculateParticipantLayout({ count, width, height }) {
       gap: 4,
       width: '100%',
       height: '100%',
+      boxSizing: 'border-box',
     },
     tileStyle: () => ({ width: '100%', height: '100%' }),
   };

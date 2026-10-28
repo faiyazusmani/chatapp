@@ -1368,14 +1368,45 @@ body.theme-galaxy {
   font-weight: 700;
 }
 
-/* Scrollable Chat List Roster */
-.chat-list {
+/* Scrollable Chat List Roster & All Users Directory */
+.chat-list,
+.all-users-directory {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: var(--space-1);
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
+}
+
+.chat-list {
+  padding: var(--space-1);
   gap: 2px;
+}
+
+.all-users-directory {
+  padding: 6px 10px 24px 10px;
+  gap: 8px;
+}
+
+.all-users-directory::-webkit-scrollbar {
+  width: 6px;
+}
+
+.all-users-directory::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.all-users-directory::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.all-users-directory::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Empty Roster State */

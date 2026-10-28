@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const CallSession = require('../models/CallSession');
+const CallHistory = require('../models/CallHistory');
+const Room = require('../models/Room');
 const Message = require('../models/Message');
 const { authorizeRoomAccess, memoryCallSessions } = require('../controllers/callSessionController');
 const logger = require('../utils/logger');
@@ -378,6 +380,29 @@ module.exports = (io, socket) => {
         await session.save();
 
         if (session.status === 'ended' || session.status === 'missed') {
+          try {
+            const otherPart = (session.participants || []).find((p) => p.user && p.user.toString() !== session.creator.toString());
+            let receiverId = otherPart ? otherPart.user : null;
+            if (!receiverId) {
+              const roomDoc = await Room.findById(roomId).select('members');
+              receiverId = roomDoc?.members?.find((m) => m.toString() !== session.creator.toString()) || null;
+            }
+
+            await CallHistory.create({
+              caller: session.creator,
+              receiver: receiverId,
+              room: roomId,
+              type: session.callType,
+              status: session.duration > 0 || session.endedReason === 'completed' ? 'completed' : 'missed',
+              startTime: session.startedAt,
+              endTime: session.endedAt || new Date(),
+              duration: session.duration || 0
+            });
+            io.emit('call:ended', { callId, roomId });
+          } catch (callHistErr) {
+            logger.warn(`[CallHandler] CallHistory logging error: ${callHistErr.message}`);
+          }
+
           const sysMsg = await Message.create({
             room: roomId,
             sender: session.creator,

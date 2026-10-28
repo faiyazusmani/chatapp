@@ -48,7 +48,9 @@ export default function MinimizedCallBar() {
             height: 10,
             borderRadius: '50%',
             background: '#22c55e',
-            animation: 'pulse 1.5s infinite',
+            animation: 'pulse 1.5s infinite ease-in-out',
+            willChange: 'transform, opacity',
+            pointerEvents: 'none',
             flexShrink: 0,
           }}
         />

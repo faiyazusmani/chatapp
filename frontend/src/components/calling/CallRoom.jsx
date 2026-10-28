@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/useAuth';
@@ -51,44 +51,59 @@ export default function CallRoom({ onClose = null }) {
     setPinnedId((prev) => (prev === id ? null : id));
   }, []);
 
-  const containerRef = useRef(null);
-  const [dimensions, setDimensions] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1280,
-    height: typeof window !== 'undefined' ? window.innerHeight - 136 : 720,
+  const [dimensions, setDimensions] = useState(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const isMob = w < 768;
+    const isLandMob = (typeof window !== 'undefined' ? window.innerHeight : 720) < 500 && w >= 500;
+    const hH = isLandMob ? 40 : isMob ? 50 : 60;
+    const fH = isLandMob ? 54 : isMob ? 66 : 76;
+    const h = typeof window !== 'undefined' ? Math.max(200, window.innerHeight - (hH + fH)) : 720;
+    return { width: w, height: h };
   });
 
   // ── Responsive Dimensions & Orientation Observer ─────────────────────────
   useEffect(() => {
+    // Lock document body scroll to eliminate scrollbar jitter & horizontal overflow
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    document.body.style.overflow = 'hidden';
+
+    let rafId = null;
+
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const { clientWidth, clientHeight } = containerRef.current;
-        if (clientWidth > 0 && clientHeight > 0) {
-          setDimensions({ width: clientWidth, height: clientHeight });
-          return;
+      const w = window.innerWidth;
+      const isMob = w < 768;
+      const isLandMob = window.innerHeight < 500 && w >= 500;
+      const hH = isLandMob ? 40 : isMob ? 50 : 60;
+      const fH = isLandMob ? 54 : isMob ? 66 : 76;
+      const h = Math.max(200, window.innerHeight - (hH + fH));
+
+      setDimensions((prev) => {
+        if (prev.width === w && prev.height === h) {
+          return prev;
         }
-      }
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight - (window.innerWidth < 768 ? 110 : 136),
+        return { width: w, height: h };
       });
     };
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    window.addEventListener('orientationchange', updateDimensions);
+    const debouncedUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateDimensions);
+    };
 
-    let ro = null;
-    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
-      ro = new ResizeObserver(() => {
-        updateDimensions();
-      });
-      ro.observe(containerRef.current);
-    }
+    window.addEventListener('resize', debouncedUpdate);
+    window.addEventListener('orientationchange', debouncedUpdate);
 
     return () => {
-      window.removeEventListener('resize', updateDimensions);
-      window.removeEventListener('orientationchange', updateDimensions);
-      if (ro) ro.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', debouncedUpdate);
+      window.removeEventListener('orientationchange', debouncedUpdate);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
     };
   }, []);
 
@@ -210,14 +225,19 @@ export default function CallRoom({ onClose = null }) {
         color: '#f9fafb',
         display: 'flex',
         flexDirection: 'column',
-        height: '100dvh',
-        maxHeight: '100dvh',
-        width: '100vw',
-        maxWidth: '100vw',
+        height: '100%',
+        maxHeight: '100%',
+        width: '100%',
+        maxWidth: '100%',
         overflow: 'hidden',
         userSelect: 'none',
+        boxSizing: 'border-box',
         paddingLeft: 'max(0px, env(safe-area-inset-left, 0px))',
         paddingRight: 'max(0px, env(safe-area-inset-right, 0px))',
+        transform: 'translateZ(0)',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
+        contain: 'layout size style',
       }}
     >
       {/* ── Integrated In-Call Notifications ──────────────────────────────── */}
@@ -386,7 +406,6 @@ export default function CallRoom({ onClose = null }) {
 
       {/* ── 2. MAIN AREA: Dynamic Grid, Presentation, or Outgoing Ringing ──── */}
       <main
-        ref={containerRef}
         style={{
           flex: 1,
           minHeight: 0,
@@ -397,6 +416,7 @@ export default function CallRoom({ onClose = null }) {
           justifyContent: 'center',
           overflow: 'hidden',
           position: 'relative',
+          boxSizing: 'border-box',
         }}
       >
         {/* ── Mode 0: Outgoing Calling / Ringing State ───────────────────────── */}
@@ -410,7 +430,6 @@ export default function CallRoom({ onClose = null }) {
               textAlign: 'center',
               gap: 18,
               padding: 24,
-              animation: 'fadeIn 0.2s ease-out',
             }}
           >
             {/* Pulsing Ringing Avatar */}
@@ -435,7 +454,9 @@ export default function CallRoom({ onClose = null }) {
                   inset: -10,
                   borderRadius: '50%',
                   border: '2px solid rgba(124, 58, 237, 0.45)',
-                  animation: 'pulse 1.6s infinite',
+                  animation: 'pulse 1.6s infinite ease-in-out',
+                  willChange: 'transform, opacity',
+                  pointerEvents: 'none',
                 }}
               />
               <span>{currentCall?.callType === 'voice' ? '📞' : '📹'}</span>
@@ -636,7 +657,7 @@ export default function CallRoom({ onClose = null }) {
           padding: '0 12px',
           paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))',
           maxWidth: '100%',
-          overflowX: 'auto',
+          overflowX: isMobile ? 'auto' : 'hidden',
           scrollbarWidth: 'none',
           zIndex: 10,
           position: 'relative',

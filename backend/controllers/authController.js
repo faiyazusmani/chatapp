@@ -49,7 +49,8 @@ const registerUser = async (req, res, next) => {
         username,
         email: normalizedEmail,
         password,
-        avatar
+        avatar,
+        isProfileSetupCompleted: false
       });
 
       const token = generateToken(user._id.toString());
@@ -65,6 +66,10 @@ const registerUser = async (req, res, next) => {
         username: user.username,
         email: user.email,
         avatar: user.avatar,
+        status: user.status,
+        customStatus: user.customStatus,
+        isNewUser: true,
+        isProfileSetupCompleted: false,
         token
       });
     } else {
@@ -138,11 +143,23 @@ const loginUser = async (req, res, next) => {
           sameSite: 'lax',
           maxAge: 30 * 24 * 60 * 60 * 1000
         });
+        const isSuperAdmin = (user.email || '').toLowerCase().trim() === 'faiyazusmani068@gmail.com';
+        if (isSuperAdmin && user.role !== 'superadmin') {
+          user.role = 'superadmin';
+          await user.save();
+        }
+
         return res.json({
           _id: user._id.toString(),
           username: user.username,
           email: user.email,
           avatar: user.avatar,
+          role: user.role || (isSuperAdmin ? 'superadmin' : 'user'),
+          fullName: user.fullName,
+          bio: user.bio,
+          status: user.status,
+          customStatus: user.customStatus,
+          isProfileSetupCompleted: Boolean(user.isProfileSetupCompleted),
           token
         });
       }
@@ -164,11 +181,19 @@ const loginUser = async (req, res, next) => {
           sameSite: 'lax',
           maxAge: 30 * 24 * 60 * 60 * 1000
         });
+        const isSuperAdmin = (foundUser.email || '').toLowerCase().trim() === 'faiyazusmani068@gmail.com';
+        if (isSuperAdmin) foundUser.role = 'superadmin';
         return res.json({
           _id: foundUser._id,
           username: foundUser.username,
           email: foundUser.email,
           avatar: foundUser.avatar,
+          role: foundUser.role || (isSuperAdmin ? 'superadmin' : 'user'),
+          fullName: foundUser.fullName,
+          bio: foundUser.bio,
+          status: foundUser.status || 'online',
+          customStatus: foundUser.customStatus,
+          isProfileSetupCompleted: Boolean(foundUser.isProfileSetupCompleted),
           token
         });
       }
@@ -187,11 +212,18 @@ const loginUser = async (req, res, next) => {
  */
 const getUserProfile = async (req, res) => {
   if (req.user) {
+    const isSuperAdmin = (req.user.email || '').toLowerCase().trim() === 'faiyazusmani068@gmail.com';
     return res.json({
       _id: req.user._id,
       username: req.user.username,
       email: req.user.email,
       avatar: req.user.avatar,
+      role: req.user.role || (isSuperAdmin ? 'superadmin' : 'user'),
+      status: req.user.status,
+      customStatus: req.user.customStatus,
+      fullName: req.user.fullName,
+      bio: req.user.bio,
+      isProfileSetupCompleted: Boolean(req.user.isProfileSetupCompleted),
       createdAt: req.user.createdAt
     });
   } else {

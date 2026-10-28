@@ -6,6 +6,7 @@ const userRoutes = require('./userRoutes');
 const roomRoutes = require('./roomRoutes');
 const messageRoutes = require('./messageRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const statusRoutes = require('./statusRoutes');
 
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -23,6 +24,9 @@ router.use('/auth', googleAuthRoutes);
 
 // User Profile routes
 router.use('/users', userRoutes);
+
+// WhatsApp-style User Status Stories routes
+router.use('/status', statusRoutes);
 
 // Room Management routes
 router.use('/rooms', roomRoutes);

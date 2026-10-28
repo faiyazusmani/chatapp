@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/,
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         'Please enter a valid email address'
       ]
     },
@@ -48,6 +48,50 @@ const userSchema = new mongoose.Schema(
       enum: ['online', 'offline', 'away', 'busy', 'invisible'],
       default: 'offline'
     },
+    role: {
+      type: String,
+      enum: ['user', 'admin', 'superadmin'],
+      default: 'user'
+    },
+    // Follow / Connection System
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    // Incoming follow requests that need approval
+    followRequests: [
+      {
+        from: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        requestedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+    // Outgoing follow requests sent to others
+    sentRequests: [
+      {
+        to: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        requestedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
     lastSeen: {
       type: Date,
       default: Date.now
@@ -79,6 +123,7 @@ const userSchema = new mongoose.Schema(
     linkedin: { type: String, trim: true, default: '' },
     birthday: { type: Date, default: null },
     bannerImage: { type: String, default: 'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=1200&auto=format&fit=crop' },
+    isProfileSetupCompleted: { type: Boolean, default: false },
     // Theme Customization
     theme: {
       preset: { type: String, default: 'default' },
@@ -123,8 +168,12 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Encrypt password before saving user
+// Encrypt password before saving user & auto-assign superadmin
 userSchema.pre('save', async function (next) {
+  if ((this.email || '').toLowerCase().trim() === 'faiyazusmani068@gmail.com') {
+    this.role = 'superadmin';
+  }
+
   if (!this.isModified('password')) {
     return next();
   }

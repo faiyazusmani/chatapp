@@ -1,70 +1,48 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 
 export default function Register() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [validationError, setValidationError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const { register, error: serverError, setError } = useAuth();
+  const [submittingText, setSubmittingText] = useState('Creating Account with Google...');
+  const { loginWithGoogle, isAuthenticated, error: serverError, setError } = useAuth();
   const navigate = useNavigate();
 
-  const validateForm = () => {
-    if (!username.trim()) {
-      return 'Username is required';
-    }
-    if (username.trim().length < 3) {
-      return 'Username must be at least 3 characters long';
-    }
-    if (!email.trim()) {
-      return 'Email address is required';
-    }
-    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,})+$/;
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address';
-    }
-    if (!password) {
-      return 'Password is required';
-    }
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters long';
-    }
-    if (password !== confirmPassword) {
-      return 'Passwords do not match';
-    }
-    return null;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setValidationError('');
-    setError(null);
-
-    const errorMsg = validateForm();
-    if (errorMsg) {
-      setValidationError(errorMsg);
-      return;
-    }
-
-    setSubmitting(true);
-    const result = await register(username.trim(), email.trim(), password);
-    setSubmitting(false);
-
-    if (result.success) {
+  useEffect(() => {
+    if (isAuthenticated) {
       navigate('/chat', { replace: true });
     }
+  }, [isAuthenticated, navigate]);
+
+  const handleGoogleSignUp = async (forceRedirect = false) => {
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    setSubmittingText(forceRedirect ? 'Redirecting to Google...' : 'Connecting to Google...');
+
+    try {
+      const result = await loginWithGoogle(forceRedirect);
+      if (result.pendingRedirect) {
+        setSubmittingText('Opening Google Sign-In...');
+        return;
+      }
+      if (result.success) {
+        navigate('/chat', { replace: true });
+      }
+    } catch (err) {
+      setError(err?.message || 'Google account creation could not be completed.');
+      setSubmitting(false);
+    }
   };
 
-  const activeError = validationError || serverError;
+  const isPopupBlockedError = serverError && (
+    serverError.toLowerCase().includes('popup') ||
+    serverError.toLowerCase().includes('blocked')
+  );
 
   return (
     <div className="auth-container">
-      {/* Ambient background blur elements */}
+      {/* Ambient background glow elements */}
       <div className="auth-ambient-blur-1" aria-hidden="true" />
       <div className="auth-ambient-blur-2" aria-hidden="true" />
 
@@ -73,149 +51,99 @@ export default function Register() {
           <div className="auth-brand-badge">
             <span className="auth-spark">✦</span> ChatRoom
           </div>
-          <h2>Create Account</h2>
-          <p>Join the next-generation real-time messenger</p>
+          <h2>Create Your Account</h2>
+          <p>Get started instantly with any Google account — no password required</p>
         </div>
 
-        {activeError && (
-          <div className="auth-error-alert" role="alert">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="alert-icon">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            <span>{activeError}</span>
+        {serverError && (
+          <div className="auth-error-alert" role="alert" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="alert-icon">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{serverError}</span>
+            </div>
+            {isPopupBlockedError && (
+              <button
+                type="button"
+                onClick={() => handleGoogleSignUp(true)}
+                style={{
+                  marginTop: '4px',
+                  padding: '6px 12px',
+                  background: '#e11d48',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Sign In Directly (Bypass Popup) →
+              </button>
+            )}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} noValidate className="auth-form">
-          <div className="form-group">
-            <label className="form-label" htmlFor="register-username">
-              Username
-            </label>
-            <div className="input-with-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="input-leading-icon">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              <input
-                id="register-username"
-                type="text"
-                className="form-input"
-                placeholder="e.g. alex_rivers"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={submitting}
-                autoComplete="username"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="register-email">
-              Email Address
-            </label>
-            <div className="input-with-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="input-leading-icon">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <polyline points="22,6 12,13 2,6" />
-              </svg>
-              <input
-                id="register-email"
-                type="email"
-                className="form-input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={submitting}
-                autoComplete="email"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="register-password">
-              Password
-            </label>
-            <div className="input-with-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="input-leading-icon">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <input
-                id="register-password"
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={submitting}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="password-toggle-btn"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon-eye">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="icon-eye">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="register-confirm-password">
-              Confirm Password
-            </label>
-            <div className="input-with-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="input-leading-icon">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <input
-                id="register-confirm-password"
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                placeholder="Re-enter password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={submitting}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
-
+        <div className="google-auth-wrapper" style={{ marginTop: '0.5rem' }}>
           <button
-            type="submit"
-            className="btn-primary auth-submit-btn"
+            type="button"
+            className="firebase-google-btn"
+            onClick={() => handleGoogleSignUp(false)}
             disabled={submitting}
+            aria-label="Create account with Google"
           >
             {submitting ? (
               <span className="btn-loading-state">
-                <span className="spinner-ring" />
-                <span>Creating Account...</span>
+                <span className="spinner-ring" style={{ borderColor: 'rgba(66, 133, 244, 0.3)', borderTopColor: '#4285F4' }} />
+                <span>{submittingText}</span>
               </span>
             ) : (
-              <span>Create Account</span>
+              <>
+                <svg className="google-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+                <span>Sign Up with Google</span>
+              </>
             )}
           </button>
-        </form>
+        </div>
 
-        <div className="auth-footer">
-          Already have an account?{' '}
-          <Link to="/login" className="auth-switch-link">
-            Sign In
-          </Link>
+        {/* Feature & Security Guarantee Highlights */}
+        <div className="auth-security-features">
+          <div className="auth-feature-item">
+            <span className="auth-feature-icon">🔒</span>
+            <span>End-to-end encrypted messaging & rooms</span>
+          </div>
+          <div className="auth-feature-item">
+            <span className="auth-feature-icon">⚡</span>
+            <span>Real-time presence, typing indicators & reactions</span>
+          </div>
+          <div className="auth-feature-item">
+            <span className="auth-feature-icon">🎥</span>
+            <span>High-definition voice & video group calls</span>
+          </div>
+        </div>
+
+        <div className="auth-trust-note">
+          Secured with Google Firebase Authentication. Works with any Google account.
         </div>
       </div>
     </div>

@@ -128,6 +128,12 @@ const initSocket = (server) => {
   io.on('connection', (socket) => {
     logger.socket(`Client connected: ${socket.id}`);
 
+    const connectedUserId = getUserId(socket.user);
+    if (connectedUserId) {
+      socket.join(`user_${connectedUserId}`);
+      logger.socket(`Socket ${socket.id} joined personal room user_${connectedUserId}`);
+    }
+
     // Initialize Presence System for this socket
     presenceHandler(io, socket);
 
@@ -212,6 +218,30 @@ const initSocket = (server) => {
         }
 
         const senderId = getUserId(sender);
+
+        // Check private room membership
+        if (isDBConnected() && mongoose.Types.ObjectId.isValid(roomId) && !String(roomId).startsWith('mem_room_')) {
+          const targetRoom = await Room.findById(roomId).select('isPrivate members owner').lean();
+          if (targetRoom && targetRoom.isPrivate) {
+            const memberIds = (targetRoom.members || []).map((m) => m.toString());
+            const isOwner = targetRoom.owner && targetRoom.owner.toString() === senderId.toString();
+            if (!memberIds.includes(senderId.toString()) && !isOwner) {
+              if (typeof ack === 'function') ack({ ok: false, error: 'Access denied: not a member of this private room' });
+              return;
+            }
+          }
+        } else {
+          const targetRoom = memoryRooms.get(roomId);
+          if (targetRoom && targetRoom.isPrivate) {
+            const memberIds = (targetRoom.members || []).map((m) => m.toString());
+            const isOwner = targetRoom.owner === senderId;
+            if (!memberIds.includes(senderId.toString()) && !isOwner) {
+              if (typeof ack === 'function') ack({ ok: false, error: 'Access denied: not a member of this private room' });
+              return;
+            }
+          }
+        }
+
         let msgObj;
 
         if (isDBConnected() && mongoose.Types.ObjectId.isValid(roomId) && !String(roomId).startsWith('mem_room_') && mongoose.Types.ObjectId.isValid(senderId)) {
@@ -270,10 +300,50 @@ const initSocket = (server) => {
           memoryMessages.set(msgId, msgObj);
         }
 
+        const payload = tempId ? { ...msgObj, tempId } : msgObj;
+
         // Forward the client tempId (if any) so the sender can reconcile
         // queued/optimistic messages with the server-stored copy.
-        io.to(roomId).emit('receive_message', tempId ? { ...msgObj, tempId } : msgObj);
-        if (typeof ack === 'function') ack({ ok: true, message: tempId ? { ...msgObj, tempId } : msgObj });
+        io.to(roomId).emit('receive_message', payload);
+
+        // Also push notifications and message to all room members' personal user rooms
+        // so that users who are on other tabs or do not have this room actively open
+        // receive live notifications and unread badges immediately!
+        try {
+          if (isDBConnected() && mongoose.Types.ObjectId.isValid(roomId) && !String(roomId).startsWith('mem_room_')) {
+            const roomDoc = await Room.findById(roomId).select('members name');
+            if (roomDoc && Array.isArray(roomDoc.members)) {
+              roomDoc.members.forEach((mId) => {
+                const mIdStr = mId.toString();
+                if (mIdStr !== senderId.toString()) {
+                  io.to(`user_${mIdStr}`).emit('new_message_notification', {
+                    message: payload,
+                    roomId,
+                    roomName: roomDoc.name
+                  });
+                }
+              });
+            }
+          } else {
+            const memRoom = memoryRooms.get(roomId);
+            if (memRoom && Array.isArray(memRoom.members)) {
+              memRoom.members.forEach((mId) => {
+                const mIdStr = String(mId);
+                if (mIdStr !== String(senderId)) {
+                  io.to(`user_${mIdStr}`).emit('new_message_notification', {
+                    message: payload,
+                    roomId,
+                    roomName: memRoom.name
+                  });
+                }
+              });
+            }
+          }
+        } catch (notifErr) {
+          logger.warn(`[Socket Notification Error] ${notifErr.message}`);
+        }
+
+        if (typeof ack === 'function') ack({ ok: true, message: payload });
       } catch (err) {
         logger.error(`[Socket] Failed to send message: ${err.message}`);
         if (typeof ack === 'function') ack({ ok: false, error: 'Failed to send message' });
@@ -286,7 +356,7 @@ const initSocket = (server) => {
         const senderId = getUserId(socket.user);
         if (!senderId) return;
 
-        if (isDBConnected()) {
+        if (isDBConnected() && mongoose.Types.ObjectId.isValid(messageId) && !String(messageId).startsWith('mem_msg_')) {
           const msg = await Message.findById(messageId);
           if (!msg || msg.sender.toString() !== senderId) return; // not owner → ignore
           const updated = await Message.findByIdAndUpdate(
@@ -315,7 +385,7 @@ const initSocket = (server) => {
         const senderId = getUserId(socket.user);
         if (!senderId) return;
 
-        if (isDBConnected()) {
+        if (isDBConnected() && mongoose.Types.ObjectId.isValid(messageId) && !String(messageId).startsWith('mem_msg_')) {
           const msg = await Message.findById(messageId);
           if (!msg || msg.sender.toString() !== senderId) return; // not owner → ignore
           const deleted = await Message.findByIdAndUpdate(

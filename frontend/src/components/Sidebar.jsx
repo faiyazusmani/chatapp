@@ -3,9 +3,12 @@ import PropTypes from 'prop-types';
 import { useAuth } from '../context/useAuth';
 import UserProfileModal from './profile/UserProfileModal';
 import StatusPickerModal from './profile/StatusPickerModal';
+import StatusList from './status/StatusList';
+import AllUsersList from './users/AllUsersList';
 import ThemeSettingsModal from './profile/ThemeSettingsModal';
 import AppearanceStudioModal from './appearance/AppearanceStudioModal';
 import { SkeletonChatItem } from './SkeletonLoaders';
+import NotificationSection from './notifications/NotificationSection';
 import '../styles/gajim/gajim-provided.css'; // Import the new Gajim styles
 
 export default function Sidebar({
@@ -17,12 +20,23 @@ export default function Sidebar({
   rooms = [],
   activeRoom,
   onSelectRoom,
+  onDeleteRoom,
   searchQuery,
   setSearchQuery,
   unreadCounts = {},
   roomsLoading = false,
   isMobileSidebarOpen,
-  setIsMobileSidebarOpen
+  setIsMobileSidebarOpen,
+  onOpenProfileSetup,
+  notifications = [],
+  unreadNotificationsCount = 0,
+  onClearAllNotifications,
+  onDismissNotification,
+  onSelectRoomFromNotification,
+  onAcceptFollowRequest,
+  onDeclineFollowRequest,
+  onRequestBrowserPermission,
+  notificationPermissionStatus = 'default'
 }) {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -30,6 +44,7 @@ export default function Sidebar({
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [showPersonalityStudio, setShowPersonalityStudio] = useState(false);
+  const [allSubView, setAllSubView] = useState('users'); // 'users' | 'rooms'
 
   const touchStartXRef = useRef(0);
   const userMenuRef = useRef(null);
@@ -152,10 +167,20 @@ export default function Sidebar({
                 {/* Presence Dropdown Menu */}
                 <div className={`presence-dropdown ${showUserMenu ? 'active' : ''}`} role="menu" aria-hidden={!showUserMenu} style={{ display: showUserMenu ? 'block' : 'none' }}>
                     <div className="presence-header">
-                        <span className="user-display-name">{user?.username || 'My Account'}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span className="user-display-name">{user?.username || 'My Account'}</span>
+                            {(user?.role === 'superadmin' || (user?.email || '').toLowerCase() === 'faiyazusmani068@gmail.com') && (
+                              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', letterSpacing: 0.3 }}>
+                                👑 Super Admin
+                              </span>
+                            )}
+                        </div>
                         <span className="user-jid">{user?.email || 'user@xmpp.net'}</span>
                     </div>
                     <div className="presence-divider"></div>
+                    <button className="presence-option" onClick={() => { setShowUserMenu(false); if (onOpenProfileSetup) onOpenProfileSetup(); else setShowProfile(true); }} role="menuitem">
+                        <span className="presence-label">✨ Set Up Photo & Status</span>
+                    </button>
                     <button className="presence-option" onClick={() => { setShowUserMenu(false); setShowProfile(true); }} role="menuitem">
                         <span className="presence-label">👤 Profile</span>
                     </button>
@@ -189,6 +214,20 @@ export default function Sidebar({
                     <span className="tooltip">Conversations</span>
                 </button>
                 <button 
+                  className={`nav-item ${activeTab === 'status' ? 'active' : ''}`} 
+                  onClick={() => setActiveTab('status')} 
+                  title="Status Updates" 
+                  aria-label="Status Updates" 
+                  aria-selected={activeTab === 'status'} 
+                  role="tab"
+                >
+                    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a10 10 0 1 0 10 10" />
+                      <circle cx="12" cy="12" r="6" />
+                    </svg>
+                    <span className="tooltip">Status</span>
+                </button>
+                <button 
                   className={`nav-item ${activeTab === 'joined' ? 'active' : ''}`} 
                   onClick={() => setActiveTab('joined')} 
                   title="Group Chat Rooms" 
@@ -209,6 +248,44 @@ export default function Sidebar({
                 >
                     <svg className="icon bi bi-telephone-fill" viewBox="0 0 16 16" fill="currentColor"><path fillRule="evenodd" d="M1.885.511a1.745 1.745 0 0 1 2.61.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z"/></svg>
                     <span className="tooltip">Calls</span>
+                </button>
+                <button 
+                  className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} 
+                  onClick={() => setActiveTab('notifications')} 
+                  title="Notifications" 
+                  aria-label="Notifications" 
+                  aria-selected={activeTab === 'notifications'} 
+                  role="tab"
+                  style={{ position: 'relative' }}
+                >
+                    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    {unreadNotificationsCount > 0 && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          minWidth: 16,
+                          height: 16,
+                          padding: '0 4px',
+                          borderRadius: 8,
+                          background: '#ef4444',
+                          color: '#fff',
+                          fontSize: 9,
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 0 8px rgba(239, 68, 68, 0.7)'
+                        }}
+                      >
+                        {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                      </span>
+                    )}
+                    <span className="tooltip">Notifications</span>
                 </button>
             </nav>
 
@@ -237,7 +314,7 @@ export default function Sidebar({
             {/* Header with Title & Action Button */}
             <div className="chat-list-header">
                 <div className="header-title-container">
-                    <h1 className="panel-title">{activeTab === 'joined' ? 'Rooms' : 'Chats'}</h1>
+                    <h1 className="panel-title">{activeTab === 'joined' ? 'Rooms' : activeTab === 'status' ? 'Status' : activeTab === 'notifications' ? 'Notifications' : 'Chats'}</h1>
                     <span className="connection-status-pill connected" title="Connected">
                         <span className="status-dot"></span> JoyBoy
                     </span>
@@ -263,6 +340,21 @@ export default function Sidebar({
                 </div>
             </div>
 
+            {activeTab === 'status' ? (
+              <StatusList onOpenProfileSetup={onOpenProfileSetup} />
+            ) : activeTab === 'notifications' ? (
+              <NotificationSection
+                notifications={notifications}
+                onClearAll={onClearAllNotifications}
+                onDismissNotification={onDismissNotification}
+                onOpenRoom={onSelectRoomFromNotification}
+                onAcceptRequest={onAcceptFollowRequest}
+                onDeclineRequest={onDeclineFollowRequest}
+                onRequestPermission={onRequestBrowserPermission}
+                permissionStatus={notificationPermissionStatus}
+              />
+            ) : (
+              <>
             {/* Search Bar */}
             <div className="search-container">
                 <div className="search-input-wrapper">
@@ -287,6 +379,53 @@ export default function Sidebar({
                     )}
                 </div>
             </div>
+
+            {/* New User Welcome Profile Setup Banner */}
+            {!user?.isProfileSetupCompleted && onOpenProfileSetup && (
+              <div
+                style={{
+                  margin: '0 12px 10px 12px',
+                  padding: '10px 12px',
+                  background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(59, 130, 246, 0.18))',
+                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 10
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>✨</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Complete Your Profile
+                    </div>
+                    <div style={{ fontSize: 11, color: '#c084fc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Set your photo & status
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenProfileSetup}
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    background: '#7c3aed',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  Set Up
+                </button>
+              </div>
+            )}
 
             {/* Filter Tabs */}
             <div className="filter-tabs ui-scroll-tabs" role="tablist" aria-label="Filter chats">
@@ -326,8 +465,79 @@ export default function Sidebar({
                 </button>
             </div>
 
-            {/* Chat List Scrollable Roster */}
-            <div className="chat-list" data-lenis-prevent role="listbox" aria-label="Conversations List">
+            {/* In 'All' tab: Sub-navigation between All Users and Rooms */}
+            {(activeTab === 'chats' || activeTab === 'explore') && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '3px',
+                  margin: '0 12px 10px 12px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: 10,
+                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setAllSubView('users')}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    borderRadius: 7,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: allSubView === 'users' ? 'var(--theme-primary, #6366f1)' : 'transparent',
+                    color: allSubView === 'users' ? '#fff' : '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>👥</span>
+                  <span>Users</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllSubView('rooms')}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    borderRadius: 7,
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: allSubView === 'rooms' ? 'var(--theme-primary, #6366f1)' : 'transparent',
+                    color: allSubView === 'rooms' ? '#fff' : '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>💬</span>
+                  <span>Rooms</span>
+                </button>
+              </div>
+            )}
+
+            {/* When 'All Users' is selected under the All section */}
+            {(activeTab === 'chats' || activeTab === 'explore') && allSubView === 'users' ? (
+              <AllUsersList
+                onSelectRoom={onSelectRoom}
+                searchQuery={searchQuery}
+                onOpenProfileSetup={onOpenProfileSetup}
+              />
+            ) : (
+              <div className="chat-list" data-lenis-prevent role="listbox" aria-label="Conversations List">
                 {roomsLoading ? (
                   /* Loading Roster State - Skeleton Loaders */
                   <div className="chat-list-skeleton" style={{ padding: 8 }}>
@@ -348,6 +558,19 @@ export default function Sidebar({
                   currentRoomsList.map((room) => {
                     const isSelected = activeRoom && (activeRoom._id || activeRoom.id) === (room._id || room.id);
                     const avatarBg = getRoomColor(room.name);
+                    const myId = String(user?._id || user?.id || '');
+                    const ownerId = String(room.owner?._id || room.owner?.id || room.owner || '');
+                    const myEmail = (user?.email || '').toLowerCase();
+                    const ownerEmail = (room.owner?.email || '').toLowerCase();
+                    const isFaiyazOwner = myEmail.startsWith('faiyaz') && (ownerEmail.startsWith('faiyaz') || !ownerEmail || ownerEmail.includes('navgurukul'));
+                    const isSuperAdmin = user?.role === 'superadmin' || myEmail === 'faiyazusmani068@gmail.com';
+                    const isOwner = Boolean(
+                      isSuperAdmin ||
+                      (myId && ownerId && myId === ownerId) ||
+                      (myEmail && ownerEmail && myEmail === ownerEmail) ||
+                      isFaiyazOwner ||
+                      user?.role === 'admin'
+                    );
                     return (
                       <div
                         key={room._id || room.id || room.name}
@@ -381,9 +604,11 @@ export default function Sidebar({
                               width: 9,
                               height: 9,
                               borderRadius: '50%',
-                              background: room.isPrivate ? '#f59e0b' : '#10b981',
+                              background: room.isPrivate ? (room.isMember ? '#f59e0b' : '#ef4444') : '#10b981',
                               border: '1.5px solid var(--bg-sidebar, #0e1626)',
-                              boxShadow: room.isPrivate ? '0 0 6px rgba(245, 158, 11, 0.5)' : '0 0 6px rgba(16, 185, 129, 0.6)'
+                              boxShadow: room.isPrivate
+                                ? (room.isMember ? '0 0 6px rgba(245, 158, 11, 0.5)' : '0 0 6px rgba(239, 68, 68, 0.5)')
+                                : '0 0 6px rgba(16, 185, 129, 0.6)'
                             }}
                           />
                         </div>
@@ -393,9 +618,12 @@ export default function Sidebar({
                                 <div className="chat-name-wrapper">
                                     <span className="chat-name">{room.name}</span>
                                     {room.isPrivate ? (
-                                      <span className="roster-badge roster-badge-private" title="Private Space (Code Required)">
+                                      <span
+                                        className="roster-badge roster-badge-private"
+                                        title={room.isMember ? 'Private Room · Joined' : 'Private Room · Room code required to join'}
+                                      >
                                         <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" className="bi bi-lock-fill" style={{ flexShrink: 0 }}><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>
-                                        <span>Private</span>
+                                        <span>{room.isMember ? 'Private' : 'Locked'}</span>
                                       </span>
                                     ) : (
                                       <span className="roster-badge roster-badge-public" title="Published Public Channel">
@@ -413,12 +641,57 @@ export default function Sidebar({
                                   </span>
                                 )}
                             </div>
+                            <div className="chat-item-bottom" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, fontSize: 11, color: 'var(--color-neutral-500)' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isOwner ? '80%' : '92%' }}>
+                                {room.isPrivate
+                                  ? (room.isMember ? (room.description || 'Private space') : '🔒 Code required to join')
+                                  : (room.description || `${room.category || 'General'} channel`)}
+                              </span>
+                              {isOwner && onDeleteRoom && (
+                                <button
+                                  type="button"
+                                  className="btn-icon delete-room-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to permanently delete room "${room.name}"?`)) {
+                                      onDeleteRoom(room._id || room.id);
+                                    }
+                                  }}
+                                  title="Delete Room"
+                                  aria-label={`Delete room ${room.name}`}
+                                  style={{
+                                    width: 20,
+                                    height: 20,
+                                    minWidth: 20,
+                                    padding: 0,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#ef4444',
+                                    opacity: 0.7,
+                                    borderRadius: 4,
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
                         </div>
                       </div>
                     )
                   })
                 )}
             </div>
+            )}
+            </>
+            )}
         </section>
 
       </div>
@@ -455,10 +728,12 @@ Sidebar.propTypes = {
   rooms: PropTypes.array,
   activeRoom: PropTypes.object,
   onSelectRoom: PropTypes.func,
+  onDeleteRoom: PropTypes.func,
   searchQuery: PropTypes.string,
   setSearchQuery: PropTypes.func,
   unreadCounts: PropTypes.object,
   roomsLoading: PropTypes.bool,
   isMobileSidebarOpen: PropTypes.bool,
-  setIsMobileSidebarOpen: PropTypes.func
+  setIsMobileSidebarOpen: PropTypes.func,
+  onOpenProfileSetup: PropTypes.func
 };

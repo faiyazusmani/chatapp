@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { socket } from '../services/socket';
 import { useAuth } from '../context/useAuth';
 import { SkeletonCallHistory } from '../components/SkeletonLoaders';
 
@@ -11,19 +12,33 @@ export default function CallHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All'); // All, Voice, Video, Missed
 
-  useEffect(() => {
-    const fetchCalls = async () => {
-      try {
-        const res = await api.get('/calls');
-        setCalls(res.data);
-      } catch (err) {
-        console.error('Failed to fetch call history:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCalls();
+  const fetchCalls = useCallback(async () => {
+    try {
+      const res = await api.get('/calls');
+      setCalls(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Failed to fetch call history:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchCalls();
+
+    const onCallChanged = () => fetchCalls();
+    socket.on('call:started', onCallChanged);
+    socket.on('call:ended', onCallChanged);
+    socket.on('call_ended', onCallChanged);
+    socket.on('video_call_ended', onCallChanged);
+
+    return () => {
+      socket.off('call:started', onCallChanged);
+      socket.off('call:ended', onCallChanged);
+      socket.off('call_ended', onCallChanged);
+      socket.off('video_call_ended', onCallChanged);
+    };
+  }, [fetchCalls]);
 
   const formatDuration = (seconds) => {
     if (!seconds) return '0s';
@@ -115,7 +130,7 @@ export default function CallHistoryPage() {
               const callerId = call.caller?._id || call.caller?.id;
               const isOutgoing = Boolean(myId && callerId && String(myId) === String(callerId));
               const otherUser = isOutgoing ? call.receiver : call.caller;
-              const otherName = otherUser ? otherUser.username : 'Unknown User';
+              const otherName = otherUser?.username || call.room?.name || 'Call Contact';
               
               const isMissed = call.status === 'missed';
               const icon = call.type === 'video' ? '📹' : '📞';
