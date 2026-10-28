@@ -5,6 +5,7 @@ import { useAuth } from './useAuth';
 import api from '../services/api';
 import livekitMediaService from '../services/livekitMediaService';
 import { Track } from 'livekit-client';
+import { showDesktopNotification } from '../utils/desktopNotifications';
 
 const CallContext = createContext(null);
 
@@ -25,6 +26,9 @@ const playSoundEffect = (type) => {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     if (type === 'ringback') {
       // Gentle outgoing double-beep
@@ -947,9 +951,39 @@ export function CallProvider({ children }) {
 
       setIncomingCall(data);
       playSoundEffect('incoming');
+      if (incomingIntervalRef.current) clearInterval(incomingIntervalRef.current);
       incomingIntervalRef.current = setInterval(() => {
         playSoundEffect('incoming');
       }, 3500);
+
+      // Trigger desktop notification for background alerts
+      const callerName = data.caller?.username || 'Team Member';
+      const callTypeLabel = data.callType === 'voice' ? 'Voice' : 'Video';
+      showDesktopNotification(
+        `📞 Incoming ${callTypeLabel} Call`,
+        `${callerName} is calling in #${data.roomName || 'Conversation'}...`,
+        data.roomId
+      );
+
+      // Also trigger in-app toast notification
+      addCallNotification(
+        `Incoming ${callTypeLabel} Call`,
+        `${callerName} is calling in #${data.roomName || 'Conversation'}`,
+        'call'
+      );
+    };
+
+    // Bridge legacy P2P calling signals
+    const handleLegacyCallIncoming = (data, type = 'voice') => {
+      handleCallIncoming({
+        callId: `legacy_${Date.now()}`,
+        roomId: data.toRoom || data.roomId,
+        roomName: 'Direct Call',
+        callType: type,
+        caller: data.caller,
+        fromSocket: data.fromSocket,
+        offer: data.offer,
+      });
     };
 
     // Remote recipient declined call
@@ -1167,6 +1201,8 @@ export function CallProvider({ children }) {
     };
 
     socket.on('call:incoming', handleCallIncoming);
+    socket.on('call_incoming', (data) => handleLegacyCallIncoming(data, 'voice'));
+    socket.on('video_call_incoming', (data) => handleLegacyCallIncoming(data, 'video'));
     socket.on('call:declined', handleCallDeclined);
     socket.on('call:busy', handleCallBusy);
     socket.on('call:participant_joined', handleCallParticipantJoined);
@@ -1178,6 +1214,8 @@ export function CallProvider({ children }) {
 
     return () => {
       socket.off('call:incoming', handleCallIncoming);
+      socket.off('call_incoming');
+      socket.off('video_call_incoming');
       socket.off('call:declined', handleCallDeclined);
       socket.off('call:busy', handleCallBusy);
       socket.off('call:participant_joined', handleCallParticipantJoined);

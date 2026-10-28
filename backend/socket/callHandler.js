@@ -4,6 +4,7 @@ const CallHistory = require('../models/CallHistory');
 const Room = require('../models/Room');
 const Message = require('../models/Message');
 const { authorizeRoomAccess, memoryCallSessions } = require('../controllers/callSessionController');
+const { memoryRooms } = require('../controllers/roomController');
 const logger = require('../utils/logger');
 
 const isDBConnected = () => mongoose.connection.readyState === 1;
@@ -15,8 +16,13 @@ const isDBConnected = () => mongoose.connection.readyState === 1;
  * @param {import('socket.io').Socket} socket
  */
 module.exports = (io, socket) => {
-  const user = socket.user;
-  const userIdStr = user?._id ? user._id.toString() : user?.id ? String(user.id) : null;
+  let user = socket.user;
+  let userIdStr = user?._id ? user._id.toString() : user?.id ? String(user.id) : null;
+
+  socket.on('authenticate', () => {
+    user = socket.user;
+    userIdStr = user?._id ? user._id.toString() : user?.id ? String(user.id) : null;
+  });
 
   // ── 1. Start a Multi-User Call ──────────────────────────────────────────
   socket.on('call:start', async ({ roomId, callType = 'video' }, ack) => {
@@ -117,14 +123,43 @@ module.exports = (io, socket) => {
         participants: session.participants
       });
 
-      // Ring all other room members
-      socket.to(roomId).emit('call:incoming', {
+      const incomingPayload = {
         callId: session.callId,
         roomId,
         roomName: authCheck.room?.name || 'Room',
         callType: session.callType,
         caller: { _id: userIdStr, username: user.username, avatar: user.avatar }
-      });
+      };
+
+      // Ring all other room members currently connected to the room socket
+      socket.to(roomId).emit('call:incoming', incomingPayload);
+
+      // Also ring all members directly in their personal user rooms so they receive the call no matter where they are!
+      try {
+        if (isDBConnected() && mongoose.Types.ObjectId.isValid(roomId) && !String(roomId).startsWith('mem_room_')) {
+          const roomDoc = await Room.findById(roomId).select('members');
+          if (roomDoc && Array.isArray(roomDoc.members)) {
+            roomDoc.members.forEach((mId) => {
+              const mIdStr = mId.toString();
+              if (mIdStr !== userIdStr) {
+                io.to(`user_${mIdStr}`).emit('call:incoming', incomingPayload);
+              }
+            });
+          }
+        } else {
+          const memRoom = memoryRooms.get(roomId);
+          if (memRoom && Array.isArray(memRoom.members)) {
+            memRoom.members.forEach((mId) => {
+              const mIdStr = String(mId);
+              if (mIdStr !== String(userIdStr)) {
+                io.to(`user_${mIdStr}`).emit('call:incoming', incomingPayload);
+              }
+            });
+          }
+        }
+      } catch (ringErr) {
+        logger.warn(`[CallHandler] Personal room ring error: ${ringErr.message}`);
+      }
 
       if (typeof ack === 'function') {
         ack({

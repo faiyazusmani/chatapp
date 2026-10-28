@@ -401,11 +401,13 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
 
     // Socket Event Listeners
     const handleReceiveMessage = (newMsg) => {
-      if (newMsg.room === roomId) {
+      if (!newMsg) return;
+      const msgRoomId = String(newMsg.room?._id || newMsg.room || '');
+      if (msgRoomId === String(roomId)) {
         setMessages((prev) => {
           // Duplicate prevention: ignore messages already in the feed
           // (covers broadcast echoes of ack-confirmed sends).
-          if (prev.some((m) => m._id === newMsg._id)) return prev;
+          if (prev.some((m) => String(m._id) === String(newMsg._id))) return prev;
           return [...prev, newMsg];
         });
         // Reconcile a queued (offline) message with its server copy
@@ -415,9 +417,9 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
         // Only auto-scroll when the user is already near the bottom
         if (isNearBottom()) scrollToBottom();
 
-        const senderId = newMsg.sender?._id || newMsg.sender?.id;
-        const currentUserId = user?._id || user?.id;
-        if (senderId !== currentUserId) {
+        const senderId = String(newMsg.sender?._id || newMsg.sender?.id || '');
+        const currentUserId = String(user?._id || user?.id || '');
+        if (senderId && currentUserId && senderId !== currentUserId) {
           if (!document.hidden && document.hasFocus()) {
             try {
               const res = api.post(`/messages/${roomId}/read`);
@@ -430,6 +432,12 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
             addNotification('New Message', `${newMsg.sender?.username || 'Someone'}: "${newMsg.content || 'Sent a file'}"`, 'message');
           }
         }
+      }
+    };
+
+    const handleNewMessageNotification = (data) => {
+      if (data?.message) {
+        handleReceiveMessage(data.message);
       }
     };
 
@@ -508,6 +516,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
     };
 
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('new_message_notification', handleNewMessageNotification);
     socket.on('message_edited', handleMessageEdited);
     socket.on('message_deleted', handleMessageDeleted);
     socket.on('message_reaction_updated', handleMessageReactionUpdated);
@@ -529,6 +538,7 @@ export default function ChatWindow({ room, onLeaveRoom, onBack, onToggleMobileSi
       unregisterActiveRoom(roomId);
       socket.emit('leave_room', { roomId, user });
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('new_message_notification', handleNewMessageNotification);
       socket.off('message_edited', handleMessageEdited);
       socket.off('message_deleted', handleMessageDeleted);
       socket.off('message_reaction_updated', handleMessageReactionUpdated);

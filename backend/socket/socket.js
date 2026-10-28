@@ -134,6 +134,35 @@ const initSocket = (server) => {
       logger.socket(`Socket ${socket.id} joined personal room user_${connectedUserId}`);
     }
 
+    // Explicit post-connect authentication listener
+    socket.on('authenticate', async ({ token }, cb) => {
+      try {
+        if (!token) {
+          if (typeof cb === 'function') cb({ success: false, error: 'Token required' });
+          return;
+        }
+        const decoded = jwt.verify(token, getJwtSecret());
+        let authedUser = null;
+        if (isDBConnected() && mongoose.Types.ObjectId.isValid(decoded.id)) {
+          authedUser = await User.findById(decoded.id).select('-password');
+        } else {
+          const { memoryUsers } = require('../controllers/authController');
+          authedUser = memoryUsers.get(decoded.id);
+        }
+        if (authedUser) {
+          socket.user = authedUser;
+          const uid = getUserId(authedUser);
+          socket.join(`user_${uid}`);
+          logger.socket(`Socket ${socket.id} authenticated and joined user_${uid}`);
+          if (typeof cb === 'function') cb({ success: true, userId: uid });
+        } else {
+          if (typeof cb === 'function') cb({ success: false, error: 'User not found' });
+        }
+      } catch (err) {
+        if (typeof cb === 'function') cb({ success: false, error: err.message });
+      }
+    });
+
     // Initialize Presence System for this socket
     presenceHandler(io, socket);
 
@@ -316,6 +345,8 @@ const initSocket = (server) => {
               roomDoc.members.forEach((mId) => {
                 const mIdStr = mId.toString();
                 if (mIdStr !== senderId.toString()) {
+                  // Instant real-time message delivery to member active socket channels
+                  io.to(`user_${mIdStr}`).emit('receive_message', payload);
                   io.to(`user_${mIdStr}`).emit('new_message_notification', {
                     message: payload,
                     roomId,
@@ -330,6 +361,7 @@ const initSocket = (server) => {
               memRoom.members.forEach((mId) => {
                 const mIdStr = String(mId);
                 if (mIdStr !== String(senderId)) {
+                  io.to(`user_${mIdStr}`).emit('receive_message', payload);
                   io.to(`user_${mIdStr}`).emit('new_message_notification', {
                     message: payload,
                     roomId,
@@ -623,10 +655,38 @@ const initSocket = (server) => {
         logger.error(`[CallHistory] voice call_user error: ${err.message}`);
       }
 
+      const senderId = getUserId(socket.user);
+      const callData = { offer, caller: socket.user, fromSocket: socket.id, toRoom };
       if (toSocketId) {
-        socket.to(toSocketId).emit('call_incoming', { offer, caller: socket.user, fromSocket: socket.id });
+        socket.to(toSocketId).emit('call_incoming', callData);
       } else {
-        socket.to(toRoom).emit('call_incoming', { offer, caller: socket.user, fromSocket: socket.id });
+        socket.to(toRoom).emit('call_incoming', callData);
+        // Ring all room members via their personal rooms
+        try {
+          if (isDBConnected() && mongoose.Types.ObjectId.isValid(toRoom) && !String(toRoom).startsWith('mem_room_')) {
+            const r = await Room.findById(toRoom).select('members');
+            if (r && Array.isArray(r.members)) {
+              r.members.forEach((mId) => {
+                const mStr = mId.toString();
+                if (mStr !== String(senderId)) {
+                  io.to(`user_${mStr}`).emit('call_incoming', callData);
+                }
+              });
+            }
+          } else {
+            const r = memoryRooms.get(toRoom);
+            if (r && Array.isArray(r.members)) {
+              r.members.forEach((mId) => {
+                const mStr = String(mId);
+                if (mStr !== String(senderId)) {
+                  io.to(`user_${mStr}`).emit('call_incoming', callData);
+                }
+              });
+            }
+          }
+        } catch (callErr) {
+          logger.warn(`[Socket call_user error] ${callErr.message}`);
+        }
       }
     });
 
@@ -725,10 +785,38 @@ const initSocket = (server) => {
         logger.error(`[CallHistory] video call_user error: ${err.message}`);
       }
 
+      const senderId = getUserId(socket.user);
+      const videoCallData = { offer, caller: socket.user, fromSocket: socket.id, toRoom };
       if (toSocketId) {
-        socket.to(toSocketId).emit('video_call_incoming', { offer, caller: socket.user, fromSocket: socket.id });
+        socket.to(toSocketId).emit('video_call_incoming', videoCallData);
       } else {
-        socket.to(toRoom).emit('video_call_incoming', { offer, caller: socket.user, fromSocket: socket.id });
+        socket.to(toRoom).emit('video_call_incoming', videoCallData);
+        // Ring all room members via their personal rooms
+        try {
+          if (isDBConnected() && mongoose.Types.ObjectId.isValid(toRoom) && !String(toRoom).startsWith('mem_room_')) {
+            const r = await Room.findById(toRoom).select('members');
+            if (r && Array.isArray(r.members)) {
+              r.members.forEach((mId) => {
+                const mStr = mId.toString();
+                if (mStr !== String(senderId)) {
+                  io.to(`user_${mStr}`).emit('video_call_incoming', videoCallData);
+                }
+              });
+            }
+          } else {
+            const r = memoryRooms.get(toRoom);
+            if (r && Array.isArray(r.members)) {
+              r.members.forEach((mId) => {
+                const mStr = String(mId);
+                if (mStr !== String(senderId)) {
+                  io.to(`user_${mStr}`).emit('video_call_incoming', videoCallData);
+                }
+              });
+            }
+          }
+        } catch (vidErr) {
+          logger.warn(`[Socket video_call_user error] ${vidErr.message}`);
+        }
       }
     });
 
